@@ -13,7 +13,7 @@ From a clinical perspective, the cohort demonstrates important molecular subtype
 MRI Breast image from Breast MRI - Mayo Clinic https://www.mayoclinic.org/tests-procedures/breast-mri/about/pac-20384809
 
 ### I-SPY-2 clinical metadata
-images/spy2_drag_data.png
+![clinical_data_spy2](images/spy2_drag_data.png)
 
 Monticciolo, D. L., Newell, M. S., Moy, L., Niell, B., Monsees, B., & Sickles, E. A. (2018). Breast Cancer Screening in Women at Higher-Than-Average Risk: Recommendations From the ACR. Journal of the American College of Radiology, 15(3), 408–414. https://doi.org/10.1016/j.jacr.2017.11.034
 QuantumLeap Healthcare Collaborative. (2024). I-SPY Trial (Investigation of Serial Studies to Predict Your Therapeutic Response With Imaging And moLecular Analysis 2) (Clinical Trial Registration No. NCT01042379). clinicaltrials.gov. https://clinicaltrials.gov/study/NCT01042379
