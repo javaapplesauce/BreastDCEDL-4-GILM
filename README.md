@@ -1,5 +1,5 @@
 # BreastDCEDL
-BreastDCEDL A Deep Learning-Ready DCE-MRI Breast Cancer Dataset from I-SPY 2 with DCE-MRI Processing Toolkit
+BreastDCEDL A Deep Learning-Ready DCE-MRI Breast Cancer Dataset from I-SPY-2, I-SPY-1 and Duke, with DCE-MRI Processing Toolkit
 
 ## I-SPY-2 dataset
 
@@ -10,6 +10,9 @@ The public Breast DCE- MRI dataset entitled I-SPY 2 trial (Li et al., 2022; Newi
 From a clinical perspective, the cohort demonstrates important molecular subtype distributions: 54.5% (n=537) of patients are Hormone Receptor-positive (HR+), and 24.8% (n=244) are HER2-positive. The pathologic complete response (pCR) rate, a crucial measure of treatment effectiveness, was observed in 32.2% (n=317) of patients. 
 More information and data here : https://github.com/naomifridman/BreastDCEDL/blob/main/ISPY2/README.md
 
-
 Monticciolo, D. L., Newell, M. S., Moy, L., Niell, B., Monsees, B., & Sickles, E. A. (2018). Breast Cancer Screening in Women at Higher-Than-Average Risk: Recommendations From the ACR. Journal of the American College of Radiology, 15(3), 408–414. https://doi.org/10.1016/j.jacr.2017.11.034
 QuantumLeap Healthcare Collaborative. (2024). I-SPY Trial (Investigation of Serial Studies to Predict Your Therapeutic Response With Imaging And moLecular Analysis 2) (Clinical Trial Registration No. NCT01042379). clinicaltrials.gov. https://clinicaltrials.gov/study/NCT01042379
+
+## I-SPY-1 dataset
+
+## Duke dataset
