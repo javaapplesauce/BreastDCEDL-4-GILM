@@ -25,8 +25,37 @@ Excel file with all clinical and demographic data
 
 Data collected from dicom files and TCIA metadata fdiles:
 
+| Name           | Description                                                                                              |
+|----------------|----------------------------------------------------------------------------------------------------------|
+| pid            | Unique patient identifier.                                                                               |
+| n_xy           | Number of pixels in the x-y plane (e.g., image resolution in axial dimensions).                          |
+| n_z            | Number of slices in the z-direction (depth of the image volume).                                         |
+| n_times        | Number of time points or repeated imaging sessions.                                          |
+| pre            | Indicator for pre-treatment imaging data (baseline scan).                                               |
+| post_early     | Indicator for early post-treatment imaging (scan acquired soon after treatment).                         |
+| post_late      | Indicator for late post-treatment imaging (scan acquired after an extended interval post-treatment).     |
+| pix_type       | Pixel type or imaging modality, specifying the nature of the image pixels.                               |
+| slice_thick    | Thickness of each slice in the imaging modality (measured in millimeters).                               |
+| slice_space    | Spacing between consecutive slices (measured in millimeters).                                           |
+| xy_spacing     | Spacing between pixels in the x-y plane (measured in millimeters).                                       |
+| mask_start     | Starting slice with tumor segmentation.                                       |
+| mask_end       | Ending slice with tumor segmentation.                                           |
+| age            | Age of the patient at the time of imaging.                                                               |
+| r_white        | Race White.                                    |
+| r_black        | Race Black or African American.                                    |
+| mask_count     | Number of slices with segmentation masks.                                                  |
+| mask_max       | The slice index of the Maximum value of voxels in segmentation mask (e.g., highest intensity or largest area).           |
+| pCR            | Pathologic complete response status (binary indicator: 1 for complete response, 0 otherwise).            |
+| HR             | Hormone receptor status (binary, indicating positive or negative status).                       |
+| MP             | Molecular profile             |
+| HRposHER2neg   | Indicator for HR-positive/HER2-negative status (binary indicator).                                       |
+| HER2pos        | Indicator for HER2-positive status (binary indicator).                                                 |
+| TripleNeg      | Indicator for triple-negative status (binary indicator).                                               |
+| test           | train/validation or test.                                   |
 
-![MRI Scan](../images/spy2_data_organization.png)
+
+
+## ![MRI Scan](../images/spy2_data_organization.png)
 MRI Breast image from Breast MRI - Mayo Clinic https://www.mayoclinic.org/tests-procedures/breast-mri/about/pac-20384809
 
 ### I-SPY-2 clinical metadata
