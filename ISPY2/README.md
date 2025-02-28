@@ -19,6 +19,13 @@ Full description of analysis mask processing for FOV calculation.
 
 Excel file with all clinical and demographic data
 
+### Metadata file created from metadata and dicom file
+
+* **ISPY2/metadata_spy2_vis1_for_modeling.csv**
+
+Data collected from dicom files and TCIA metadata fdiles:
+
+
 ![MRI Scan](../images/spy2_data_organization.png)
 MRI Breast image from Breast MRI - Mayo Clinic https://www.mayoclinic.org/tests-procedures/breast-mri/about/pac-20384809
 
