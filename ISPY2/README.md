@@ -11,6 +11,10 @@ From a clinical perspective, the cohort demonstrates important molecular subtype
   
 Description of DICOM data tags and organization of I-SPY-2 dataset.
 
+* **ISPY2/ACRIN-6698-ISPY2-Shared-Private-Tag-Data-Dictionary_20210520.xlsx**
+
+Description of privatew DICOM data tags used for I-SPY-2 dataset.
+ 
 * **Analysis-mask-files-description.v20211020.docx**
   
 Full description of analysis mask processing for FOV calculation.
