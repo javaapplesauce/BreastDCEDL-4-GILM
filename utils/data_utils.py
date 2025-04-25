@@ -140,7 +140,7 @@ def get_nifti_acquisitions(pid ):
     nifti_acq_ext=nifti_acq_ext_all[dataset]
 
     fname = pid + nifti_acq_ext + '0.nii.gz'
-    #print(os.path.join(fpath,fname))
+    print('loading',os.path.join(fpath,fname))
     if not os.path.isfile(os.path.join(fpath,fname)):
         print('no nifti files',os.path.join(fpath,fname) )
         return None
@@ -278,10 +278,10 @@ def to_rgb(a,b,c):
     return x
 
 
-def show_pid(pid):
+def show_pid(pid, ser=[0,1,2], bbox=None):
     
     ds = get_dataset_from_id(pid)
-    d=get_ser_acquisitions(pid, [0,1,2])
+    d=get_ser_acquisitions(pid, ser)
     print(pid,ds)
     
     m = get_nifti_mask(pid)
@@ -292,8 +292,22 @@ def show_pid(pid):
                  titles=[pid+' plane '+str(int(k)) for k in np.linspace(s+1, e-1, num=5, dtype=int)])
         show_n_images([to_rgb(d[0][k],d[1][k],m[k]) for k in np.linspace(s+1, e-1, num=5, dtype=int)],
                      titles=[pid+' plane '+str(int(k)) for k in np.linspace(s+1, e-1, num=5, dtype=int)])
+        show_n_images([m[k] for k in np.linspace(s+1, e-1, num=5, dtype=int)],
+                     titles=[pid+' plane '+str(int(k)) for k in np.linspace(s+1, e-1, num=5, dtype=int)])
+    elif bbox is not None:
+        print('==== No mask showing BoundingBox')
+        m=np.zeros(d[0].shape)
+        #m[int(bbox[0]):int(bbox[1]), int(bbox[2]):int(bbox[3]),  int(bbox[4]):int(bbox[5])]=1
+        m[int(bbox[0]):int(bbox[1]), int(bbox[2]):int(bbox[3]),  int(bbox[4]):int(bbox[5])]=1
+        idx=np.linspace(int(bbox[0])+1, int(bbox[1])-1, num=5, dtype=int)
+
+        show_n_images([np.stack([minmax(d[0][k]),
+                                minmax(d[1][k]),
+                                m[k]],axis=2) for k in idx],axis_off=False)
+        show_n_images([d[1][k] for k in idx])
+        
     else:
-        print('==== No mask')
+        print('==== No mask No BoundingBox')
         show_n_images([to_rgb(d[0][k],d[1][k],d[2][k]) for k in np.linspace(5, d[0].shape[0]-5, num=5, dtype=int)],
                  titles=[pid+' plane '+str(int(k)) for k in np.linspace(5, d[0].shape[0]-5, num=5, dtype=int)])
         
