@@ -74,7 +74,7 @@ def show_n_images(imgs, cmap='gray', titles = None, enlarge = 4, mtitle=None,
 
             ax1.imshow(img, interpolation='none');
         if (titles is not None):
-            ax1.set_title(titles[i], fontsize=fontsize);  #, fontweight="bold");
+            ax1.set_title(titles[i], fontsize=fontsize); 
         if (axis_off):
             plt.axis('off')
     if mtitle:
@@ -130,7 +130,15 @@ def read_niftii(fname):
     mnii_data = nii_img.get_fdata()
 
     return mnii_data
-
+    
+def save_niftii(fname, np_img):
+ 
+    converted_array = np.array(np_img, dtype=np.float64)
+    affine = np.eye(4)
+    nifti_file = nib.Nifti1Image(converted_array, affine)
+    
+    nib.save(nifti_file, fname)
+   
 def get_nifti_acquisitions(pid ):
 
     global nifti_path
@@ -163,14 +171,15 @@ def get_nifti_acquisitions(pid ):
 def get_ser_acquisitions(pid, ser=[0,1,2]):
 
     global nifti_path
+    
     dataset = get_dataset_from_id(pid)
     fpath=nifti_path[dataset]
     nifti_acq_ext=nifti_acq_ext_all[dataset]
-
+    
     fname = pid + nifti_acq_ext +str(int(ser[0])) + '.nii.gz'
 
     if not os.path.isfile(os.path.join(fpath,fname)):
-        print('no nifti files',os.path.join(fpath,fname) )
+        print('no nifti files',pid,fpath,fname,nifti_acq_ext ,os.path.join(fpath,fname) )
         return None
 
     x=read_niftii( os.path.join(fpath,fname))
@@ -210,7 +219,7 @@ def get_nifti_mask(pid):
 
     fname = pid + mask_acq_ext + '.nii.gz'
     if not os.path.isfile(os.path.join(fpath,fname)):
-        print('no nifti files')
+        print('no nifti files', os.path.isfile(os.path.join(fpath,fname)))
         return None
 
     img=read_niftii( os.path.join(fpath,fname))
@@ -233,8 +242,8 @@ def find_first_last_planes(data):
         last_plane = indices[-1]
         return int(first_plane), int(last_plane)
     else:
-        return None, None  # or appropriate handling if no '1' is present in any plane
-    
+        return None, None 
+        
 def get_nonzero_bounding_box(array_3d):
     """
     Find the minimum bounding box containing all non-zero elements in a 3D array.
@@ -281,20 +290,21 @@ def to_rgb(a,b,c):
 def show_pid(pid, ser=[0,1,2], bbox=None):
     
     ds = get_dataset_from_id(pid)
+    
     d=get_ser_acquisitions(pid, ser)
     print(pid,ds)
     
     m = get_nifti_mask(pid)
     if m is not None:
         s,e=find_first_last_planes(m)
-        print(s,e,m.shape)
+        
         show_n_images([to_rgb(d[0][k],d[1][k],d[2][k]) for k in np.linspace(s+1, e-1, num=5, dtype=int)],
                  titles=[pid+' plane '+str(int(k)) for k in np.linspace(s+1, e-1, num=5, dtype=int)])
         show_n_images([to_rgb(d[0][k],d[1][k],m[k]) for k in np.linspace(s+1, e-1, num=5, dtype=int)],
                      titles=[pid+' plane '+str(int(k)) for k in np.linspace(s+1, e-1, num=5, dtype=int)])
         show_n_images([m[k] for k in np.linspace(s+1, e-1, num=5, dtype=int)],
                      titles=[pid+' plane '+str(int(k)) for k in np.linspace(s+1, e-1, num=5, dtype=int)])
-    elif bbox is not None:
+    if bbox is not None:
         print('==== No mask showing BoundingBox')
         m=np.zeros(d[0].shape)
         #m[int(bbox[0]):int(bbox[1]), int(bbox[2]):int(bbox[3]),  int(bbox[4]):int(bbox[5])]=1
@@ -306,11 +316,121 @@ def show_pid(pid, ser=[0,1,2], bbox=None):
                                 m[k]],axis=2) for k in idx],axis_off=False)
         show_n_images([d[1][k] for k in idx])
         
-    else:
-        print('==== No mask No BoundingBox')
-        show_n_images([to_rgb(d[0][k],d[1][k],d[2][k]) for k in np.linspace(5, d[0].shape[0]-5, num=5, dtype=int)],
-                 titles=[pid+' plane '+str(int(k)) for k in np.linspace(5, d[0].shape[0]-5, num=5, dtype=int)])
+    
         
+def show_box(pid, df, show_bw=0, show_rgb=0):
+    
+    idx = df[df.pid==pid].index.values[0]
+    
+    r=df.loc[idx]
+    pid=r['pid']
+    print(pid)
+    
+    a0=get_nifti_acquisition(pid, idx=0)
+    a1=get_nifti_acquisition(pid, idx=1)
+    a2=get_nifti_acquisition(pid, idx=r['post_late']) # last acqisition
+    startm=int(r['mask_start'])
+    endm=int(r['mask_end'])
 
+    sraw=int(r['sraw'])
+    eraw=int(r['eraw'])
+
+    scol=int(r['scol'])
+    ecol=int(r['ecol'])
+    print(startm,endm,sraw,eraw,scol,ecol,a0.shape)
+    m = np.zeros(a0.shape)
+    m[startm:endm,sraw:eraw,scol:ecol]=1
+    idx=[startm+1, (startm+endm)//2,endm-1]
+    if show_rgb:
+        show_n_images([ds.to_rgb(a0[k],a1[k],a2[k]) for k in idx], axis_off=False)
+        show_n_images([np.stack([ds.minmax(a0[k]) ,
+                                ds.minmax(a1[k]) ,
+                                m[k]],axis=2 ) for k in idx])
+    if show_bw:
+        show_n_images([a0[k] for k in idx], axis_off=False)
+        show_n_images([a1[k] for k in idx], axis_off=False)
+        show_n_images([a2[k] for k in idx], axis_off=False)
+####  ML
+from sklearn.metrics import roc_curve, auc
+def plot_roc(y, y_pred, tlt=''):
+
+    #scores = clf.predict_proba(X_test)
+    fpr, tpr, thresholds = roc_curve(y, y_pred)
+
+    plt.figure(figsize=(3,3))
+    plt.plot(fpr, tpr)
+
+    plt.xlabel('FPR (False Positive Rate = 1-specificity)')
+    plt.ylabel('TPR (True Positive Rate = sensitivity)')
+    print(tlt , ' AUC ROC score ' ,str(np.round(roc_auc_score(y, y_pred),3)))
+    plt.gca().set_aspect('equal', adjustable='box')
+    plt.title(tlt+' ROC = '+str(np.round(roc_auc_score(y, y_pred),3)));
+
+from sklearn.metrics import precision_recall_fscore_support,accuracy_score,confusion_matrix
+from sklearn.metrics import classification_report,auc,roc_auc_score
+#import vis_utils as vs
+
+
+def report_full(y, y_pred, tlt = 'Train',classes=['Negative', 'pCR pos'],
+                c_rep = 0, Thresh=0.5, plot_roc_c=0, plot_cm=0):
+
+    t = '*******   '+tlt+' *******'
+    #display(HTML('<font size=3>'+t+'</font>'))
+    #print(t)
+    y_int_pred = y_pred.copy()
+
+    if (len(y_pred.shape)>1):
+
+        y_pred = y_pred[:,1].copy()
+
+    y_int_pred = np.where(y_pred>Thresh, 1,0)
+    acc = accuracy_score(y, y_int_pred)
+    auc=np.around(roc_auc_score(y, y_pred),3)
+
+    labs = [i for i in range(len(classes))]
+
+    cm = confusion_matrix(y, y_int_pred,  labels=labs)
+
+    if (len(classes) ==2):
+
+        tn, fp, fn, tp = cm.ravel()
+
+        specificity = tn / (tn+fp)
+        sensitivity = tp/(tp+fn)
+        precision = tp / (tp + fp)  # Positive Predictive Value (PPV)
+        npv = tn / (tn + fn)  # Negative Predictive Value (NPV)
+
+        print('\n',tlt, ' Accuracy: ',np.around(acc,3),
+              ' AUC: ',np.around(auc,3) ,
+              '  Specificity:', np.around(specificity,3),
+              '  Sensitivity:',
+              np.around(sensitivity,3),
+              'NPV:',np.around(npv,3),
+              'Precision:', np.around(precision, 3))
+
+
+
+    if c_rep:
+
+        print(classification_report(y, y_int_pred,  labels=labs, target_names=classes))
+
+    #print(title)
+
+    #fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(6, 3))
+    pd.DataFrame(cm)
+    print(pd.DataFrame(cm, columns=['No','Yes']).head())
+    if plot_cm:
+
+
+        #axes[0].imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+        plot_cm(cm, classes)
+
+    if plot_roc_c:
+        plot_roc(y, y_pred, tlt=tlt)
+        '''fpr, tpr, thresholds = roc_curve(y, y_pred)
+
+
+        axes[1].plot(fpr, tpr)
+        axes[1].title(tlt+' ROC = '+str(np.around(auc,3)));'''
 
 

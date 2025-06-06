@@ -30,7 +30,7 @@ Ground truth labels include HR, HER2, and pCR status, as well as molecular subty
 
 
 
-> _`pCR N` refers to the number of patients with non-missing pCR labels; similarly, `HR N` and `HER2 N` indicate the number of patients with available HR and HER2 status, respectively. Class distributions are shown for each split._
+> _Note: `pCR N` refers to the number of patients with non-missing pCR labels; similarly, `HR N` and `HER2 N` indicate the number of patients with available HR and HER2 status, respectively. Class distributions are shown for each split._
 
 ----------
 
@@ -92,5 +92,5 @@ All datasets were originally acquired from:
 -   Monticciolo et al., 2018, _Journal of the American College of Radiology (JACR)_
 -   ClinicalTrials.gov - I-SPY2 (NCT01042379)
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEzODEzMjU3MzNdfQ==
+eyJoaXN0b3J5IjpbMTY0MDcxODczOSwtMTM4MTMyNTczM119
 -->
