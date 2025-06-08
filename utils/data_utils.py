@@ -47,9 +47,91 @@ def print_info_full(ims):
               np.quantile(im.flatten(), 0.9))
 
 
+import os
 
+def show_n_images_nsave(imgs, cmap='gray', titles=None, enlarge=4, mtitle=None,
+                  cut=0, axis_off=True, fontsize=15, cb=0, imsave=0):
+    plt.set_cmap(cmap)
+    n = len(imgs)
+    gs1 = gridspec.GridSpec(1, n)
+    fig1 = plt.figure(figsize=(4*len(imgs), 8))
+    
+    for i in range(n):
+        ax1 = fig1.add_subplot(gs1[i])
+        if (cb):
+            if len(np.unique(imgs[i])) <= 5:
+                img = imgs[i]
+            else:
+                img = cont_br(imgs[i])
+        else:
+            img = imgs[i]
+        if cut:
+            ax1.imshow(img[50:290, 75:450], interpolation='none', origin='lower')
+        else:
+            ax1.imshow(img, interpolation='none')
+        if (titles is not None):
+            ax1.set_title(titles[i], fontsize=fontsize)
+        if (axis_off):
+            plt.axis('off')
+    
+    if mtitle:
+        plt.suptitle(mtitle)
+    
+    plt.tight_layout()
+    
+    # Save images if requested
+    if imsave:
+        # Create directory if it doesn't exist
+        save_dir = 'im_for_article'
+        os.makedirs(save_dir, exist_ok=True)
+        
+        if titles is not None:
+            # Save individual images
+            for i in range(n):
+                # Clean filename (remove special characters)
+                filename = titles[i].replace(' ', '_').replace('/', '_').replace('\\', '_')
+                filename = ''.join(c for c in filename if c.isalnum() or c in ['_', '-', '.'])
+                filepath = os.path.join(save_dir, f"{filename}.png")
+                
+                # Create individual figure for each image
+                fig_single = plt.figure(figsize=(6, 6))
+                if (cb):
+                    if len(np.unique(imgs[i])) <= 5:
+                        img = imgs[i]
+                    else:
+                        img = cont_br(imgs[i])
+                else:
+                    img = imgs[i]
+                
+                if cut:
+                    plt.imshow(img[50:290, 75:450], interpolation='none', origin='lower', cmap=cmap)
+                else:
+                    plt.imshow(img, interpolation='none', cmap=cmap)
+                
+                plt.title(titles[i], fontsize=fontsize)
+                if axis_off:
+                    plt.axis('off')
+                
+                plt.tight_layout()
+                #plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                #plt.close(fig_single)
+                #print(f"Saved: {filepath}")
+        
+        # Save the combined figure
+        if mtitle:
+            combined_filename = mtitle.replace(' ', '_').replace('/', '_').replace('\\', '_')
+            combined_filename = ''.join(c for c in combined_filename if c.isalnum() or c in ['_', '-', '.'])
+        else:
+            combined_filename = 'combined_figure'+str(imsave)
+        
+        combined_filepath = os.path.join(save_dir, f"{combined_filename}_combined.png")
+        fig1.savefig(combined_filepath, dpi=300, bbox_inches='tight')
+        print(f"Saved combined figure: {combined_filepath}")
+    
+    plt.show()
+    
 def show_n_images(imgs, cmap='gray', titles = None, enlarge = 4, mtitle=None,
-                  cut = 0, axis_off = True, fontsize=15, cb = 0):
+                  cut = 0, axis_off = True, fontsize=15, cb = 0,imsave=0):
 
     plt.set_cmap(cmap);
 
@@ -286,16 +368,23 @@ def to_rgb(a,b,c):
                 minmax(c)], axis=2)
     return x
 
+def to_rgb_m(a,b,c):
+    x = minmax(np.stack([a,
+                b,
+                c], axis=2))
+    return x
+
 
 def show_pid(pid, ser=[0,1,2], bbox=None):
     
     ds = get_dataset_from_id(pid)
     
     d=get_ser_acquisitions(pid, ser)
-    print(pid,ds)
+    print(pid,ds, 'num axquisitions:',len(d))
     
     m = get_nifti_mask(pid)
     if m is not None:
+        print('mask:',m.shape, sum(m[m>0].astype(np.int8)))
         s,e=find_first_last_planes(m)
         
         show_n_images([to_rgb(d[0][k],d[1][k],d[2][k]) for k in np.linspace(s+1, e-1, num=5, dtype=int)],
