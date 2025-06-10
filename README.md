@@ -8,6 +8,13 @@
 -   Clinical and demographic metadata, including pCR, HER2, HR, age, and race
 
 ----------
+BreastDCEDL Data Download
+I-SPY1: The complete I-SPY1 dataset is available for direct download from Zenodo, https://zenodo.org/records/15627233
+
+Duke: The full Duke cohort can be accessed via The Cancer Imaging Archive (TCIA). Conversion to NIfTI format can be performed using the provided code in DUKE folder. A minimized version—containing three (n_z,256×256) tumor-centered scans per patient—is available on Zenodo, https://zenodo.org/records/15627233.
+
+I-SPY2: The full I-SPY2 dataset is available on TCIA and can be converted to NIfTI using the GitHub code. A pre-converted NIfTI version will be made available on TCIA in the near future.
+------------
 
 ## Benchmark Prediction Tasks
 
@@ -81,6 +88,16 @@ The **Duke Breast Cancer Dataset** consists of 920 patients with biopsy-confirme
 
 -   Bounding box annotations of the largest tumor are provided.
 -   No full tumor segmentation masks are available for Duke.
+
+----------
+
+## 📚 Citation
+
+If you use the BreastDCEDL dataset or code in your research, please cite:
+
+> Fridman, N., Solway, B., Fridman, T., & Barnea, I. (2025). *BreastDCEDL: A Deep Learning–Ready Breast DCE-MRI Dataset (v1.0)* [Data set]. Zenodo. https://doi.org/10.5281/zenodo.15627233
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15627233.svg)](https://doi.org/10.5281/zenodo.15627233)
 
 ----------
 
