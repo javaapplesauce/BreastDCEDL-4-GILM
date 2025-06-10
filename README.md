@@ -8,13 +8,22 @@
 -   Clinical and demographic metadata, including pCR, HER2, HR, age, and race
 
 ----------
-BreastDCEDL Data Download
-I-SPY1: The complete I-SPY1 dataset is available for direct download from Zenodo, https://zenodo.org/records/15627233
+## 📥 BreastDCEDL Data Download
 
-Duke: The full Duke cohort can be accessed via The Cancer Imaging Archive (TCIA). Conversion to NIfTI format can be performed using the provided code in DUKE folder. A minimized version—containing three (n_z,256×256) tumor-centered scans per patient—is available on Zenodo, https://zenodo.org/records/15627233.
+- **I-SPY1**  
+  The complete I-SPY1 dataset is available for direct download from **Zenodo**:  
+  [https://zenodo.org/records/15627233](https://zenodo.org/records/15627233)
 
-I-SPY2: The full I-SPY2 dataset is available on TCIA and can be converted to NIfTI using the GitHub code. A pre-converted NIfTI version will be made available on TCIA in the near future.
-------------
+- **Duke**  
+  The full Duke cohort can be accessed via **The Cancer Imaging Archive (TCIA)**.  
+  Conversion to NIfTI format can be performed using the provided code in the `DUKE/` folder.  
+  A minimized version—containing three *(n<sub>z</sub>, 256×256)* tumor-centered scans per patient—is available on **Zenodo**:  
+  [https://zenodo.org/records/15627233](https://zenodo.org/records/15627233)
+
+- **I-SPY2**  
+  The full I-SPY2 dataset is available on **TCIA** and can be converted to NIfTI using the code in this repository.  
+  A pre-converted NIfTI version will be made available on TCIA in the near future.
+
 
 ## Benchmark Prediction Tasks
 
