@@ -83,6 +83,9 @@ The **I-SPY1** dataset is a predecessor to I-SPY2 and contains similar imaging a
 -   Patients: 173 with 3–5 usable DCE scans
 -   Clinical data: pCR, HR, HER2, and other core biomarkers
 
+  ![Example from I-SPY1](https://github.com/naomifridman/BreastDCEDL/blob/main/images/spy1_example.png?raw=true)
+
+
 ----------
 
 ### 🧪 Duke Dataset
@@ -92,6 +95,9 @@ The **Duke Breast Cancer Dataset** consists of 920 patients with biopsy-confirme
 -   Only 288 patients (31%) received neoadjuvant chemotherapy (NAC) and have annotated pCR values.
 -   The rest underwent surgery first, followed by adjuvant therapy, and are not included in pCR analysis.
 -   DCE-MRI scans include one pre-contrast and 2–4 post-contrast acquisitions, spaced 1–2 minutes apart.
+
+![Example from I-SPY1](https://github.com/naomifridman/BreastDCEDL/blob/main/images/duke_example.png?raw=true)
+
 
 **🖼️ Data Processing Notes:**
 
