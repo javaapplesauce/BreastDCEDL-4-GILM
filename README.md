@@ -6,9 +6,7 @@ Nifti files preserve original DICOM intensity values (converted from uint16 to f
 
 **Demo:** https://colab.research.google.com/github/naomifridman/BreastDCEDL/blob/main/BrestDCEDL_zenodo_demo.ipynb
 
-## 📄 Publication
-
-[For Full methodology, Read on arXiv](https://doi.org/10.48550/arXiv.2506.12190)
+# 📄 Citation
 ```bibtex
 @article{fridman2025breastdcedl,
   title={BreastDCEDL: A Comprehensive Breast Cancer DCE-MRI Dataset and Transformer Implementation for Treatment Response Prediction},
