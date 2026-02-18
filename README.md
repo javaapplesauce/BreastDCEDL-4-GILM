@@ -8,12 +8,13 @@ Nifti files preserve original DICOM intensity values (converted from uint16 to f
 
 # 📄 Citation
 ```bibtex
-@article{fridman2025breastdcedl,
-  title={BreastDCEDL: A Comprehensive Breast Cancer DCE-MRI Dataset and Transformer Implementation for Treatment Response Prediction},
-  author={Fridman, Naomi and Solway, Bubby and Fridman, Tomer and Barnea, Itamar and Goldstein, Anat},
-  journal={arXiv preprint arXiv:2506.12190},
-  year={2025},
-  doi={10.48550/arXiv.2506.12190}
+@article{fridman2026breastdcedl,
+  author    = {Fridman, N. and Solway, B. and Fridman, T. and others},
+  title     = {{BreastDCEDL}: A standardized deep learning-ready breast {DCE-MRI} dataset of 2,070 patients},
+  journal   = {Scientific Data},
+  year      = {2026},
+  doi       = {10.1038/s41597-026-06589-6},
+  url       = {https://doi.org/10.1038/s41597-026-06589-6}
 }
 ```
 ![fusion_grid_breastdcedl](https://github.com/naomifridman/BreastDCEDL/blob/main/images/fusion_grid_with_row_titles_fixed_3.png?raw=true)
