@@ -10,7 +10,7 @@ Nifti files preserve original DICOM intensity values (converted from uint16 to f
 ```bibtex
 @article{fridman2026breastdcedl,
   author    = {Fridman, N. and Solway, B. and Fridman, T. and others},
-  title     = {{BreastDCEDL}: A standardized deep learning-ready breast {DCE-MRI} dataset of 2,070 patients},
+  title     = {BreastDCEDL: A standardized deep learning-ready breast DCE-MRI dataset of 2,070 patients},
   journal   = {Scientific Data},
   year      = {2026},
   doi       = {10.1038/s41597-026-06589-6},
