@@ -32,3 +32,20 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+
+BreastDCEDL_models/
+breastDCEDL_models/
+
+# Large data folders (downloaded separately – not tracked in git)
+BreastDCEDL_spy1/
+BreastDCEDL_duke/
+
+# Source archives for those folders
+BreastDCEDL_spy1.zip
+BreastDCEDL_duke.tar.gz
+
+# Training checkpoints
+checkpoints/
+
+evaluate.py
