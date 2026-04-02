@@ -1,16 +1,18 @@
 """
 finetune.py – Fine-tune the BreastDCEDL ViT (pCR classifier) on a custom split.
 
-Hardware 
+Hardware
     GPU 0 : TITAN V  (12 GB VRAM)
     GPU 1 : RTX 2080 Ti (11 GB VRAM)
 
 Run with:
-    CUDA_VISIBLE_DEVICES=0,1 python finetune.py
-    
+    CUDA_VISIBLE_DEVICES=0 python finetune.py
+
+    * Two-phase training: freeze backbone → unfreeze with LLRD
     * Automatic Mixed Precision (torch.cuda.amp)
     * Gradient Accumulation
-    * Weights loaded to CPU first
+    * Patient-level validation pooling
+    * Early stopping
 """
 
 import os
@@ -28,7 +30,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.cuda.amp import GradScaler, autocast
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from torch.utils.data import Dataset, DataLoader
 
 from torchvision import transforms
@@ -55,10 +57,12 @@ TRAIN_TRANSFORMS = transforms.Compose([
     transforms.RandomHorizontalFlip(),
     transforms.RandomVerticalFlip(),
     transforms.RandomRotation(15),
+    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
     transforms.ColorJitter(brightness=0.2, contrast=0.2),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225]),
+    transforms.RandomErasing(p=0.25, scale=(0.02, 0.15)),
 ])
 
 VAL_TRANSFORMS = transforms.Compose([
@@ -172,7 +176,6 @@ class BreastDCEDataset(Dataset):
             # ── Z-range: prefer metadata columns; fall back to mask scan ──────
             f, l = _z_range_from_row(row, vol_depth)
             if f == 0 and l == vol_depth - 1:
-                # Try to find active planes from the mask volume
                 mask = ds.get_nifti_mask(pid)
                 if mask is not None:
                     f_m, l_m = ds.find_first_last_planes(mask)
@@ -189,8 +192,7 @@ class BreastDCEDataset(Dataset):
             rgb = _to_rgb(acqs[0][:, :, k], acqs[1][:, :, k], acqs[2][:, :, k])
             img = Image.fromarray(rgb, mode="RGB")
 
-            # Crop centred on tumour ROI (same logic as predict notebook's
-            # safe_crop_around_roi, but uses PIL directly – no extra copy needed)
+            # Crop centred on tumour ROI
             w, h   = img.size
             half   = self.crop_size // 2
             left   = max(0, cx - half);  right  = left + self.crop_size
@@ -213,13 +215,13 @@ class BreastDCEDataset(Dataset):
         return torch.zeros(3, self.crop_size, self.crop_size), label
 
 
-# Model helpers
+# ── Model helpers ─────────────────────────────────────────────────────────────
+
 def build_model(hf_checkpoint: str, weights_path: str, num_classes: int,
-                freeze_backbone: bool) -> nn.Module:
+                freeze_backbone: bool, dropout: float = 0.3) -> nn.Module:
     """
-    Instantiate ViTForImageClassification (identical to predict notebook),
-    load weights onto CPU first (no VRAM spike), then optionally freeze the
-    encoder so only the classifier head trains.
+    Instantiate ViTForImageClassification, load weights onto CPU first,
+    inject dropout before the classifier head, and optionally freeze encoder.
     """
     print(f"[model] Loading architecture from '{hf_checkpoint}' …")
     model = ViTForImageClassification.from_pretrained(
@@ -228,13 +230,24 @@ def build_model(hf_checkpoint: str, weights_path: str, num_classes: int,
         ignore_mismatched_sizes=True,
     )
 
-    print(f"[model] Loading weights from '{weights_path}' …")
-    state_dict = torch.load(weights_path, map_location="cpu")
-    missing, unexpected = model.load_state_dict(state_dict, strict=False)
-    if missing:
-        print(f"  ⚠  Missing keys ({len(missing)}) – classifier head randomly initialised")
-    if unexpected:
-        print(f"  ⚠  Unexpected keys ({len(unexpected)}) – ignored")
+    if os.path.isfile(weights_path):
+        print(f"[model] Loading weights from '{weights_path}' …")
+        state_dict = torch.load(weights_path, map_location="cpu")
+        missing, unexpected = model.load_state_dict(state_dict, strict=False)
+        if missing:
+            print(f"  ⚠  Missing keys ({len(missing)}) – classifier head randomly initialised")
+        if unexpected:
+            print(f"  ⚠  Unexpected keys ({len(unexpected)}) – ignored")
+    else:
+        print(f"[model] No weights file at '{weights_path}' – using HF pretrained only")
+
+    # Inject dropout before classifier for regularization
+    hidden_size = model.classifier.in_features
+    model.classifier = nn.Sequential(
+        nn.Dropout(p=dropout),
+        nn.Linear(hidden_size, num_classes),
+    )
+    print(f"[model] Injected Dropout(p={dropout}) before classifier head")
 
     if freeze_backbone:
         print("[model] Freezing ViT encoder – only classifier head will be trained.")
@@ -248,7 +261,53 @@ def build_model(hf_checkpoint: str, weights_path: str, num_classes: int,
     return model
 
 
-# Training / validation loop
+def unfreeze_with_llrd(model: nn.Module, backbone_lr: float, head_lr: float,
+                       weight_decay: float, llrd: float = 0.85) -> list[dict]:
+    """
+    Unfreeze all parameters and return AdamW param groups with layer-wise LR
+    decay (LLRD). Classifier gets head_lr; each ViT encoder layer below gets
+    backbone_lr * llrd^(distance_from_top); embeddings get the lowest LR.
+    """
+    for param in model.parameters():
+        param.requires_grad = True
+
+    no_decay = {"bias", "LayerNorm.weight"}
+    seen     = set()
+    groups   = []
+
+    def _add(params, lr):
+        d_params  = [p for n, p in params if n not in seen and not any(nd in n for nd in no_decay)]
+        nd_params = [p for n, p in params if n not in seen and     any(nd in n for nd in no_decay)]
+        seen.update(n for n, _ in params)
+        if d_params:
+            groups.append({"params": d_params,  "lr": lr, "weight_decay": weight_decay})
+        if nd_params:
+            groups.append({"params": nd_params, "lr": lr, "weight_decay": 0.0})
+
+    # Classifier head (highest LR)
+    _add([(n, p) for n, p in model.named_parameters() if "classifier" in n], head_lr)
+
+    # Encoder layers — LLRD from top (layer 11) to bottom (layer 0)
+    num_layers = 12
+    for i in range(num_layers - 1, -1, -1):
+        depth = num_layers - 1 - i          # 0 for layer 11, 11 for layer 0
+        layer_lr = backbone_lr * (llrd ** depth)
+        layer_named = [(n, p) for n, p in model.named_parameters()
+                       if f"encoder.layer.{i}." in n and n not in seen]
+        _add(layer_named, layer_lr)
+
+    # Embeddings and top-level layernorm (lowest LR)
+    rest = [(n, p) for n, p in model.named_parameters() if n not in seen]
+    _add(rest, backbone_lr * (llrd ** num_layers))
+
+    trainable = sum(p.numel() for g in groups for p in g["params"] if p.requires_grad)
+    print(f"[model] Unfrozen all params. Trainable: {trainable:,}  "
+          f"(backbone_lr={backbone_lr:.1e}, head_lr={head_lr:.1e}, llrd={llrd})")
+    return groups
+
+
+# ── Training / validation loop ────────────────────────────────────────────────
+
 def run_epoch(
     model: nn.Module,
     loader: DataLoader,
@@ -260,7 +319,7 @@ def run_epoch(
     epoch: int,
     num_epochs: int,
     is_train: bool = True,
-) -> float:
+) -> tuple[float, float]:
     model.train() if is_train else model.eval()
     phase = "Train" if is_train else "  Val"
 
@@ -278,7 +337,7 @@ def run_epoch(
             with autocast():
                 outputs = model(images).logits
                 loss    = criterion(outputs, labels)
-                scaled_loss = loss / accum_steps   # average over accum steps
+                scaled_loss = loss / accum_steps
 
             if is_train:
                 scaler.scale(scaled_loss).backward()
@@ -307,20 +366,78 @@ def run_epoch(
     return running_loss / total_samples, running_corr / total_samples
 
 
-# CLI
+def eval_patient_level(
+    model: nn.Module,
+    val_df: pd.DataFrame,
+    label_col: str,
+    crop_size: int,
+    n_slices: int,
+    batch_size: int,
+    num_workers: int,
+    device: torch.device,
+) -> float:
+    """
+    Compute patient-level validation accuracy by mean-pooling logits across
+    all n_slices slices for each patient.  More stable than slice-level acc
+    on small validation sets.
+    """
+    val_ds = BreastDCEDataset(val_df, label_col=label_col, crop_size=crop_size,
+                               n_slices=n_slices, transform=VAL_TRANSFORMS)
+    loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False,
+                        num_workers=num_workers, pin_memory=True)
+
+    model.eval()
+    all_logits = []
+    all_labels = []
+
+    with torch.no_grad():
+        for images, labels in loader:
+            images = images.to(device, non_blocking=True)
+            with autocast():
+                logits = model(images).logits
+            all_logits.append(logits.cpu().float())
+            all_labels.append(labels)
+
+    all_logits = torch.cat(all_logits)   # (N_patients * n_slices, 2)
+    all_labels = torch.cat(all_labels)   # (N_patients * n_slices,)
+
+    n_patients = len(val_ds.df)
+    # Reshape: (n_patients, n_slices, 2) — loader is unshuffled, slices are contiguous
+    logits_3d  = all_logits.view(n_patients, n_slices, -1)
+    labels_2d  = all_labels.view(n_patients, n_slices)
+
+    pooled_logits   = logits_3d.mean(dim=1)      # (n_patients, 2)
+    patient_labels  = labels_2d[:, 0]             # same label for all slices
+
+    preds = pooled_logits.argmax(dim=1)
+    return (preds == patient_labels).float().mean().item()
+
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+
 def parse_args(cfg: configparser.ConfigParser) -> argparse.Namespace:
     p = cfg["paths"]; t = cfg["training"]
     ap = argparse.ArgumentParser(description="Fine-tune BreastDCEDL ViT")
-    ap.add_argument("--config",          default=_CFG_FILE,          help="Path to .cfg file")
-    ap.add_argument("--weights",         default=p["weights_path"],  help="Pre-trained .pth")
+    ap.add_argument("--config",          default=_CFG_FILE)
+    ap.add_argument("--weights",         default=p.get("weights_path", ""),  help="Pre-trained .pth")
     ap.add_argument("--checkpoint-dir",  default=p["checkpoint_dir"])
     ap.add_argument("--epochs",          default=t.getint("num_epochs"),          type=int)
+    ap.add_argument("--freeze-epochs",   default=t.getint("freeze_epochs"),       type=int,
+                    help="Epochs to train head-only before unfreezing backbone")
     ap.add_argument("--batch-size",      default=t.getint("physical_batch_size"), type=int)
     ap.add_argument("--accum",           default=t.getint("accum_steps"),         type=int)
-    ap.add_argument("--lr",              default=t.getfloat("lr"),                type=float)
-    ap.add_argument("--freeze-backbone", action="store_true",
-                    default=t.getboolean("freeze_backbone"),
-                    help="Freeze ViT encoder; train classifier head only")
+    ap.add_argument("--lr",              default=t.getfloat("lr"),                type=float,
+                    help="Backbone LR for phase 2 (LLRD base)")
+    ap.add_argument("--head-lr",         default=t.getfloat("head_lr"),           type=float,
+                    help="Classifier head LR (phase 1 and phase 2)")
+    ap.add_argument("--llrd",            default=t.getfloat("llrd"),              type=float)
+    ap.add_argument("--patience",        default=t.getint("patience"),            type=int)
+    ap.add_argument("--resume",          default=0,   type=int,
+                    help="Resume from this epoch number (loads checkpoints/breastdcedl_vit_epochNN.pth)")
+    ap.add_argument("--resume-best-acc", default=0.0, type=float,
+                    help="Best patient-level val acc achieved before interruption")
+    ap.add_argument("--resume-patience", default=0,   type=int,
+                    help="Patience counter at the point of interruption")
     return ap.parse_args()
 
 
@@ -337,19 +454,11 @@ def main():
               f"({torch.cuda.get_device_properties(i).total_memory/1024**3:.1f} GB)")
 
     d = cfg["data"]
-    nifti_paths = {
-        "spy1": d["nifti_spy1"],
-        "spy2": d["nifti_spy2"],
-        "duke": d["nifti_duke"],
-    }
-    mask_paths = {
-        "spy1": d["mask_spy1"],
-        "spy2": d["mask_spy2"],
-        "duke": d["mask_duke"],
-    }
+    nifti_paths = {"spy1": d["nifti_spy1"], "spy2": d["nifti_spy2"], "duke": d["nifti_duke"]}
+    mask_paths  = {"spy1": d["mask_spy1"],  "spy2": d["mask_spy2"],  "duke": d["mask_duke"]}
     ds.setup_paths(".", nifti_paths, mask_paths)
 
-    # Load and merge per-dataset metadata CSVs
+    # Load and merge metadata CSVs
     dfs = []
     for key in ("spy1_metadata_csv", "duke_metadata_csv"):
         csv_path = d[key]
@@ -363,15 +472,17 @@ def main():
     df = pd.concat(dfs, ignore_index=True)
     print(f"[data] Combined dataset: {len(df)} patients")
 
-    label_col  = d["label_col"]
-    crop_size  = d.getint("crop_size")
-    n_slices   = d.getint("n_slices_per_patient")
+    label_col   = d["label_col"]
+    crop_size   = d.getint("crop_size")
+    n_slices    = d.getint("n_slices_per_patient")
     num_workers = cfg["training"].getint("num_workers")
+    weight_decay = cfg["training"].getfloat("weight_decay")
+    dropout      = cfg["training"].getfloat("dropout")
 
     # Train / val split
     if "test" in df.columns:
-        train_df = df[df["test"] == False].reset_index(drop=True)
-        val_df   = df[df["test"] == True ].reset_index(drop=True)
+        train_df = df[df["test"] == 0].reset_index(drop=True)
+        val_df   = df[df["test"] != 0].reset_index(drop=True)
         print(f"[data] Train: {len(train_df)}  |  Val: {len(val_df)}")
     else:
         from sklearn.model_selection import train_test_split
@@ -393,24 +504,23 @@ def main():
     val_loader   = DataLoader(val_ds,   batch_size=args.batch_size, shuffle=False,
                               num_workers=num_workers, pin_memory=True)
 
-    print(f"[data] Physical batch/GPU={args.batch_size}{max(n_gpus,1)} GPU(s)"
-          f"{args.accum} accum  →  effective batch = "
-          f"{args.batch_size * max(n_gpus, 1) * args.accum}")
+    eff_batch = args.batch_size * max(n_gpus, 1) * args.accum
+    print(f"[data] Physical batch/GPU={args.batch_size}  ×  {max(n_gpus,1)} GPU(s)  "
+          f"×  {args.accum} accum  →  effective batch = {eff_batch}")
+    print(f"[data] Train samples: {len(train_ds)}  |  Val samples (slice-level): {len(val_ds)}")
 
-    # Model 
+    # Model
     m = cfg["model"]
     model = build_model(
-        hf_checkpoint   = m["hf_checkpoint"],
-        weights_path    = args.weights,
-        num_classes     = m.getint("num_classes"),
-        freeze_backbone = args.freeze_backbone,
+        hf_checkpoint = m["hf_checkpoint"],
+        weights_path  = args.weights,
+        num_classes   = m.getint("num_classes"),
+        freeze_backbone = True,   # always start frozen; phase 2 will unfreeze
+        dropout       = dropout,
     )
-    if n_gpus > 1:
-        print(f"[hardware] Wrapping in nn.DataParallel across {n_gpus} GPUs")
-        model = nn.DataParallel(model)
     model = model.to(device)
 
-    # Loss – weighted to handle pCR class imbalance
+    # Class-weighted loss
     label_counts  = train_df[label_col].dropna().value_counts().sort_index()
     num_classes   = m.getint("num_classes")
     class_weights = torch.tensor(
@@ -418,60 +528,142 @@ def main():
         dtype=torch.float32,
     ).to(device)
     class_weights /= class_weights.sum()
-    # No label_smoothing: with only ~45 val patients and class imbalance,
-    # smoothing pushes the model toward the majority class and hurts val acc.
     criterion = nn.CrossEntropyLoss(weight=class_weights)
 
-    optimizer = optim.AdamW(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=args.lr,
-        weight_decay=cfg["training"].getfloat("weight_decay"),
-    )
-    scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-7)
-    scaler    = GradScaler()
+    scaler = GradScaler()
 
-
-
+    best_val_acc  = args.resume_best_acc
     best_val_loss = float("inf")
-    best_val_acc  = 0.0
+    epochs_no_imp = args.resume_patience
+    phase2_start  = args.freeze_epochs + 1
+
+    if args.resume > 0:
+        ckpt_path = os.path.join(args.checkpoint_dir, f"breastdcedl_vit_epoch{args.resume:02d}.pth")
+        print(f"[resume] Loading checkpoint from '{ckpt_path}' (epoch {args.resume}) …")
+        inner = model.module if isinstance(model, nn.DataParallel) else model
+        inner.load_state_dict(torch.load(ckpt_path, map_location=device))
+        print(f"[resume] Restored best_val_acc={best_val_acc:.3f}, patience={epochs_no_imp}/{args.patience}")
+
     print("\n" + "=" * 60)
-    print("Starting fine-tuning")
+    print(f"Starting fine-tuning  ({args.freeze_epochs} freeze + "
+          f"{args.epochs - args.freeze_epochs} unfreeze epochs, patience={args.patience})")
     print("=" * 60 + "\n")
 
-    for epoch in range(1, args.epochs + 1):
-        train_loss, train_acc = run_epoch(model, train_loader, criterion, optimizer, scaler,
-                                          device, args.accum, epoch, args.epochs, is_train=True)
-        val_loss, val_acc     = run_epoch(model, val_loader,   criterion, optimizer, scaler,
-                                          device, args.accum, epoch, args.epochs, is_train=False)
-        scheduler.step()
+    # ── Phase 1: head-only ────────────────────────────────────────────────────
+    if args.freeze_epochs > 0 and args.resume < args.freeze_epochs:
+        print(f"── Phase 1: head-only, lr={args.head_lr:.1e} ──")
+        optimizer_p1 = optim.AdamW(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=args.head_lr, weight_decay=weight_decay,
+        )
+        scheduler_p1 = CosineAnnealingLR(optimizer_p1, T_max=args.freeze_epochs, eta_min=1e-6)
 
-        print(f"  ✔  Epoch {epoch:02d}/{args.epochs}  "
-              f"train_loss={train_loss:.4f}  train_acc={train_acc:.3f}  "
-              f"val_loss={val_loss:.4f}  val_acc={val_acc:.3f}  "
-              f"lr={scheduler.get_last_lr()[0]:.2e}")
+        for epoch in range(1, args.freeze_epochs + 1):
+            train_loss, train_acc = run_epoch(
+                model, train_loader, criterion, optimizer_p1, scaler,
+                device, args.accum, epoch, args.epochs, is_train=True)
+            val_loss, val_acc = run_epoch(
+                model, val_loader, criterion, optimizer_p1, scaler,
+                device, args.accum, epoch, args.epochs, is_train=False)
+            scheduler_p1.step()
 
-        # Save per-epoch checkpoint
-        inner = model.module if isinstance(model, nn.DataParallel) else model
-        ckpt  = os.path.join(args.checkpoint_dir, f"breastdcedl_vit_epoch{epoch:02d}.pth")
-        torch.save(inner.state_dict(), ckpt)
-        print(f"  💾 Checkpoint → {ckpt}")
+            # Patient-level val accuracy
+            pt_acc = eval_patient_level(model, val_df, label_col, crop_size, n_slices,
+                                        args.batch_size, num_workers, device)
 
-        # Save best checkpoint by val ACCURACY (more stable than loss on small val sets)
-        if val_acc > best_val_acc:
-            best_val_acc  = val_acc
-            best_val_loss = val_loss
-            best = os.path.join(args.checkpoint_dir, "breastdcedl_vit_best.pth")
-            torch.save(inner.state_dict(), best)
-            print(f"  ⭐ New best val acc ({val_acc:.3f}, loss={val_loss:.4f}) → {best}")
+            print(f"  ✔  Epoch {epoch:02d}/{args.epochs}  [Phase 1]  "
+                  f"train_loss={train_loss:.4f}  train_acc={train_acc:.3f}  "
+                  f"val_acc(slice)={val_acc:.3f}  val_acc(patient)={pt_acc:.3f}  "
+                  f"lr={scheduler_p1.get_last_lr()[0]:.2e}")
 
-        print()
+            if pt_acc > best_val_acc:
+                best_val_acc  = pt_acc
+                best_val_loss = val_loss
+                epochs_no_imp = 0
+                best = os.path.join(args.checkpoint_dir, "breastdcedl_vit_best.pth")
+                inner = model.module if isinstance(model, nn.DataParallel) else model
+                torch.save(inner.state_dict(), best)
+                print(f"  ⭐ New best patient-level val acc: {pt_acc:.3f} → {best}")
+            else:
+                epochs_no_imp += 1
+
+            ckpt = os.path.join(args.checkpoint_dir, f"breastdcedl_vit_epoch{epoch:02d}.pth")
+            inner = model.module if isinstance(model, nn.DataParallel) else model
+            torch.save(inner.state_dict(), ckpt)
+            print(f"  💾 Checkpoint → {ckpt}\n")
+
+    # ── Phase 2: full fine-tune with LLRD ────────────────────────────────────
+    # Reset patience so phase-1 non-improvements don't bleed into phase 2
+    epochs_no_imp = 0
+
+    remaining_epochs = args.epochs - args.freeze_epochs
+    if remaining_epochs > 0:
+        print(f"\n── Phase 2: full fine-tune with LLRD  "
+              f"(backbone_lr={args.lr:.1e}, head_lr={args.head_lr:.1e}, llrd={args.llrd}) ──")
+        param_groups = unfreeze_with_llrd(
+            model, backbone_lr=args.lr, head_lr=args.head_lr,
+            weight_decay=weight_decay, llrd=args.llrd,
+        )
+        optimizer_p2 = optim.AdamW(param_groups)
+
+        # 1-epoch linear warmup then cosine
+        warmup = LinearLR(optimizer_p2, start_factor=0.1, end_factor=1.0, total_iters=1)
+        cosine = CosineAnnealingLR(optimizer_p2, T_max=max(remaining_epochs - 1, 1), eta_min=1e-7)
+        scheduler_p2 = SequentialLR(optimizer_p2, schedulers=[warmup, cosine], milestones=[1])
+
+        # Fast-forward scheduler to match already-completed phase-2 epochs
+        phase2_done = max(0, args.resume - args.freeze_epochs)
+        for _ in range(phase2_done):
+            scheduler_p2.step()
+
+        for ep_offset in range(phase2_done + 1, remaining_epochs + 1):
+            epoch = args.freeze_epochs + ep_offset
+
+            if epochs_no_imp >= args.patience:
+                print(f"  Early stopping: no patient-level improvement for {args.patience} epochs.")
+                break
+
+            train_loss, train_acc = run_epoch(
+                model, train_loader, criterion, optimizer_p2, scaler,
+                device, args.accum, epoch, args.epochs, is_train=True)
+            val_loss, val_acc = run_epoch(
+                model, val_loader, criterion, optimizer_p2, scaler,
+                device, args.accum, epoch, args.epochs, is_train=False)
+            scheduler_p2.step()
+
+            # Patient-level val accuracy
+            pt_acc = eval_patient_level(model, val_df, label_col, crop_size, n_slices,
+                                        args.batch_size, num_workers, device)
+
+            # Report the LR of the head param group (highest LR)
+            current_lr = optimizer_p2.param_groups[0]["lr"]
+            print(f"  ✔  Epoch {epoch:02d}/{args.epochs}  [Phase 2]  "
+                  f"train_loss={train_loss:.4f}  train_acc={train_acc:.3f}  "
+                  f"val_acc(slice)={val_acc:.3f}  val_acc(patient)={pt_acc:.3f}  "
+                  f"lr={current_lr:.2e}")
+
+            if pt_acc >= best_val_acc:
+                best_val_acc  = pt_acc
+                best_val_loss = val_loss
+                epochs_no_imp = 0
+                best = os.path.join(args.checkpoint_dir, "breastdcedl_vit_best.pth")
+                inner = model.module if isinstance(model, nn.DataParallel) else model
+                torch.save(inner.state_dict(), best)
+                print(f"  ⭐ New best patient-level val acc: {pt_acc:.3f} → {best}")
+            else:
+                epochs_no_imp += 1
+                print(f"  (no improvement, patience {epochs_no_imp}/{args.patience})")
+
+            ckpt = os.path.join(args.checkpoint_dir, f"breastdcedl_vit_epoch{epoch:02d}.pth")
+            inner = model.module if isinstance(model, nn.DataParallel) else model
+            torch.save(inner.state_dict(), ckpt)
+            print(f"  💾 Checkpoint → {ckpt}\n")
 
     print("Fine-tuning complete.")
-    print(f"Best val acc  : {best_val_acc:.3f}")
-    print(f"Best val loss : {best_val_loss:.4f}  (at best-acc epoch)")
-    print(f"Checkpoints saved in : {args.checkpoint_dir}/")
+    print(f"Best patient-level val acc : {best_val_acc:.3f}")
+    print(f"Best val loss              : {best_val_loss:.4f}  (at best-acc epoch)")
+    print(f"Checkpoints saved in       : {args.checkpoint_dir}/")
 
 
 if __name__ == "__main__":
     main()
-

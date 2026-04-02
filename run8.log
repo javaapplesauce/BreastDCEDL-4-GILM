@@ -1,0 +1,646 @@
+[hardware] Using device: cuda
+  GPU 0: NVIDIA TITAN V  (11.8 GB)
+NIfTI roots : {'spy1': 'BreastDCEDL_spy1/spt1_dce', 'spy2': 'ISPY2/data_samples/dce', 'duke': 'BreastDCEDL_duke/duke_dce'}
+Mask  roots : {'spy1': 'BreastDCEDL_spy1/spy1_mask', 'spy2': 'ISPY2/data_samples/mask', 'duke': 'BreastDCEDL_duke/duke_mask'}
+[data] Loaded BreastDCEDL_spy1/BreastDCEDL_spy1_metadata.csv  (221 rows)
+[data] ⚠  BreastDCEDL_duke/BreastDCEDL_duke_metadata.csv not found – skipping
+[data] Combined dataset: 221 patients
+[data] (80/20 split) Train: 176  Val: 45
+[data] Physical batch/GPU=8  ×  1 GPU(s)  ×  4 accum  →  effective batch = 32
+[data] Train samples: 1392  |  Val samples (slice-level): 360
+[model] Loading architecture from 'google/vit-base-patch16-224-in21k' …
+
+Loading weights:   0%|          | 0/198 [00:00<?, ?it/s]
+Loading weights:   1%|          | 1/198 [00:00<00:00, 20262.34it/s, Materializing param=vit.embeddings.cls_token]
+Loading weights:   1%|          | 1/198 [00:00<00:00, 9510.89it/s, Materializing param=vit.embeddings.cls_token] 
+Loading weights:   1%|          | 2/198 [00:00<00:00, 8430.76it/s, Materializing param=vit.embeddings.patch_embeddings.projection.bias]
+Loading weights:   1%|          | 2/198 [00:00<00:00, 6961.50it/s, Materializing param=vit.embeddings.patch_embeddings.projection.bias]
+Loading weights:   2%|▏         | 3/198 [00:00<00:00, 6732.43it/s, Materializing param=vit.embeddings.patch_embeddings.projection.weight]
+Loading weights:   2%|▏         | 3/198 [00:00<00:00, 6052.39it/s, Materializing param=vit.embeddings.patch_embeddings.projection.weight]
+Loading weights:   2%|▏         | 4/198 [00:00<00:00, 6589.64it/s, Materializing param=vit.embeddings.position_embeddings]               
+Loading weights:   2%|▏         | 4/198 [00:00<00:00, 6136.51it/s, Materializing param=vit.embeddings.position_embeddings]
+Loading weights:   3%|▎         | 5/198 [00:00<00:00, 6594.82it/s, Materializing param=vit.encoder.layer.0.attention.attention.key.bias]
+Loading weights:   3%|▎         | 5/198 [00:00<00:00, 6226.70it/s, Materializing param=vit.encoder.layer.0.attention.attention.key.bias]
+Loading weights:   3%|▎         | 6/198 [00:00<00:00, 6351.80it/s, Materializing param=vit.encoder.layer.0.attention.attention.key.weight]
+Loading weights:   3%|▎         | 6/198 [00:00<00:00, 6043.67it/s, Materializing param=vit.encoder.layer.0.attention.attention.key.weight]
+Loading weights:   4%|▎         | 7/198 [00:00<00:00, 3413.57it/s, Materializing param=vit.encoder.layer.0.attention.attention.query.bias]
+Loading weights:   4%|▎         | 7/198 [00:00<00:00, 1459.03it/s, Materializing param=vit.encoder.layer.0.attention.attention.query.bias]
+Loading weights:   4%|▍         | 8/198 [00:00<00:00, 1424.03it/s, Materializing param=vit.encoder.layer.0.attention.attention.query.weight]
+Loading weights:   4%|▍         | 8/198 [00:00<00:00, 1339.44it/s, Materializing param=vit.encoder.layer.0.attention.attention.query.weight]
+Loading weights:   5%|▍         | 9/198 [00:00<00:00, 1357.58it/s, Materializing param=vit.encoder.layer.0.attention.attention.value.bias]  
+Loading weights:   5%|▍         | 9/198 [00:00<00:00, 1313.32it/s, Materializing param=vit.encoder.layer.0.attention.attention.value.bias]
+Loading weights:   5%|▌         | 10/198 [00:00<00:00, 1253.83it/s, Materializing param=vit.encoder.layer.0.attention.attention.value.weight]
+Loading weights:   5%|▌         | 10/198 [00:00<00:00, 1206.26it/s, Materializing param=vit.encoder.layer.0.attention.attention.value.weight]
+Loading weights:   6%|▌         | 11/198 [00:00<00:00, 1202.62it/s, Materializing param=vit.encoder.layer.0.attention.output.dense.bias]     
+Loading weights:   6%|▌         | 11/198 [00:00<00:00, 1169.19it/s, Materializing param=vit.encoder.layer.0.attention.output.dense.bias]
+Loading weights:   6%|▌         | 12/198 [00:00<00:00, 1195.02it/s, Materializing param=vit.encoder.layer.0.attention.output.dense.weight]
+Loading weights:   6%|▌         | 12/198 [00:00<00:00, 1157.61it/s, Materializing param=vit.encoder.layer.0.attention.output.dense.weight]
+Loading weights:   7%|▋         | 13/198 [00:00<00:00, 1133.03it/s, Materializing param=vit.encoder.layer.0.intermediate.dense.bias]      
+Loading weights:   7%|▋         | 13/198 [00:00<00:00, 1069.18it/s, Materializing param=vit.encoder.layer.0.intermediate.dense.bias]
+Loading weights:   7%|▋         | 14/198 [00:00<00:00, 946.86it/s, Materializing param=vit.encoder.layer.0.intermediate.dense.weight]
+Loading weights:   7%|▋         | 14/198 [00:00<00:00, 925.57it/s, Materializing param=vit.encoder.layer.0.intermediate.dense.weight]
+Loading weights:   8%|▊         | 15/198 [00:00<00:00, 938.79it/s, Materializing param=vit.encoder.layer.0.layernorm_after.bias]     
+Loading weights:   8%|▊         | 15/198 [00:00<00:00, 916.43it/s, Materializing param=vit.encoder.layer.0.layernorm_after.bias]
+Loading weights:   8%|▊         | 16/198 [00:00<00:00, 948.01it/s, Materializing param=vit.encoder.layer.0.layernorm_after.weight]
+Loading weights:   8%|▊         | 16/198 [00:00<00:00, 871.59it/s, Materializing param=vit.encoder.layer.0.layernorm_after.weight]
+Loading weights:   9%|▊         | 17/198 [00:00<00:00, 877.23it/s, Materializing param=vit.encoder.layer.0.layernorm_before.bias] 
+Loading weights:   9%|▊         | 17/198 [00:00<00:00, 859.06it/s, Materializing param=vit.encoder.layer.0.layernorm_before.bias]
+Loading weights:   9%|▉         | 18/198 [00:00<00:00, 873.75it/s, Materializing param=vit.encoder.layer.0.layernorm_before.weight]
+Loading weights:   9%|▉         | 18/198 [00:00<00:00, 859.93it/s, Materializing param=vit.encoder.layer.0.layernorm_before.weight]
+Loading weights:  10%|▉         | 19/198 [00:00<00:00, 887.38it/s, Materializing param=vit.encoder.layer.0.output.dense.bias]      
+Loading weights:  10%|▉         | 19/198 [00:00<00:00, 878.55it/s, Materializing param=vit.encoder.layer.0.output.dense.bias]
+Loading weights:  10%|█         | 20/198 [00:00<00:00, 843.40it/s, Materializing param=vit.encoder.layer.0.output.dense.weight]
+Loading weights:  10%|█         | 20/198 [00:00<00:00, 833.26it/s, Materializing param=vit.encoder.layer.0.output.dense.weight]
+Loading weights:  11%|█         | 21/198 [00:00<00:00, 832.19it/s, Materializing param=vit.encoder.layer.1.attention.attention.key.bias]
+Loading weights:  11%|█         | 21/198 [00:00<00:00, 823.74it/s, Materializing param=vit.encoder.layer.1.attention.attention.key.bias]
+Loading weights:  11%|█         | 22/198 [00:00<00:00, 854.84it/s, Materializing param=vit.encoder.layer.1.attention.attention.key.weight]
+Loading weights:  11%|█         | 22/198 [00:00<00:00, 843.37it/s, Materializing param=vit.encoder.layer.1.attention.attention.key.weight]
+Loading weights:  12%|█▏        | 23/198 [00:00<00:00, 871.04it/s, Materializing param=vit.encoder.layer.1.attention.attention.query.bias]
+Loading weights:  12%|█▏        | 23/198 [00:00<00:00, 868.41it/s, Materializing param=vit.encoder.layer.1.attention.attention.query.bias]
+Loading weights:  12%|█▏        | 24/198 [00:00<00:00, 891.50it/s, Materializing param=vit.encoder.layer.1.attention.attention.query.weight]
+Loading weights:  12%|█▏        | 24/198 [00:00<00:00, 888.93it/s, Materializing param=vit.encoder.layer.1.attention.attention.query.weight]
+Loading weights:  13%|█▎        | 25/198 [00:00<00:00, 905.23it/s, Materializing param=vit.encoder.layer.1.attention.attention.value.bias]  
+Loading weights:  13%|█▎        | 25/198 [00:00<00:00, 896.02it/s, Materializing param=vit.encoder.layer.1.attention.attention.value.bias]
+Loading weights:  13%|█▎        | 26/198 [00:00<00:00, 873.10it/s, Materializing param=vit.encoder.layer.1.attention.attention.value.weight]
+Loading weights:  13%|█▎        | 26/198 [00:00<00:00, 866.00it/s, Materializing param=vit.encoder.layer.1.attention.attention.value.weight]
+Loading weights:  14%|█▎        | 27/198 [00:00<00:00, 891.63it/s, Materializing param=vit.encoder.layer.1.attention.output.dense.bias]     
+Loading weights:  14%|█▎        | 27/198 [00:00<00:00, 885.08it/s, Materializing param=vit.encoder.layer.1.attention.output.dense.bias]
+Loading weights:  14%|█▍        | 28/198 [00:00<00:00, 905.77it/s, Materializing param=vit.encoder.layer.1.attention.output.dense.weight]
+Loading weights:  14%|█▍        | 28/198 [00:00<00:00, 902.77it/s, Materializing param=vit.encoder.layer.1.attention.output.dense.weight]
+Loading weights:  15%|█▍        | 29/198 [00:00<00:00, 912.53it/s, Materializing param=vit.encoder.layer.1.intermediate.dense.bias]      
+Loading weights:  15%|█▍        | 29/198 [00:00<00:00, 862.37it/s, Materializing param=vit.encoder.layer.1.intermediate.dense.bias]
+Loading weights:  15%|█▌        | 30/198 [00:00<00:00, 849.89it/s, Materializing param=vit.encoder.layer.1.intermediate.dense.weight]
+Loading weights:  15%|█▌        | 30/198 [00:00<00:00, 844.35it/s, Materializing param=vit.encoder.layer.1.intermediate.dense.weight]
+Loading weights:  16%|█▌        | 31/198 [00:00<00:00, 856.57it/s, Materializing param=vit.encoder.layer.1.layernorm_after.bias]     
+Loading weights:  16%|█▌        | 31/198 [00:00<00:00, 850.97it/s, Materializing param=vit.encoder.layer.1.layernorm_after.bias]
+Loading weights:  16%|█▌        | 32/198 [00:00<00:00, 854.11it/s, Materializing param=vit.encoder.layer.1.layernorm_after.weight]
+Loading weights:  16%|█▌        | 32/198 [00:00<00:00, 833.81it/s, Materializing param=vit.encoder.layer.1.layernorm_after.weight]
+Loading weights:  17%|█▋        | 33/198 [00:00<00:00, 808.83it/s, Materializing param=vit.encoder.layer.1.layernorm_before.bias] 
+Loading weights:  17%|█▋        | 33/198 [00:00<00:00, 801.57it/s, Materializing param=vit.encoder.layer.1.layernorm_before.bias]
+Loading weights:  17%|█▋        | 34/198 [00:00<00:00, 805.91it/s, Materializing param=vit.encoder.layer.1.layernorm_before.weight]
+Loading weights:  17%|█▋        | 34/198 [00:00<00:00, 794.43it/s, Materializing param=vit.encoder.layer.1.layernorm_before.weight]
+Loading weights:  18%|█▊        | 35/198 [00:00<00:00, 808.42it/s, Materializing param=vit.encoder.layer.1.output.dense.bias]      
+Loading weights:  18%|█▊        | 35/198 [00:00<00:00, 802.34it/s, Materializing param=vit.encoder.layer.1.output.dense.bias]
+Loading weights:  18%|█▊        | 36/198 [00:00<00:00, 816.18it/s, Materializing param=vit.encoder.layer.1.output.dense.weight]
+Loading weights:  18%|█▊        | 36/198 [00:00<00:00, 812.36it/s, Materializing param=vit.encoder.layer.1.output.dense.weight]
+Loading weights:  19%|█▊        | 37/198 [00:00<00:00, 822.25it/s, Materializing param=vit.encoder.layer.2.attention.attention.key.bias]
+Loading weights:  19%|█▊        | 37/198 [00:00<00:00, 816.61it/s, Materializing param=vit.encoder.layer.2.attention.attention.key.bias]
+Loading weights:  19%|█▉        | 38/198 [00:00<00:00, 830.96it/s, Materializing param=vit.encoder.layer.2.attention.attention.key.weight]
+Loading weights:  19%|█▉        | 38/198 [00:00<00:00, 828.00it/s, Materializing param=vit.encoder.layer.2.attention.attention.key.weight]
+Loading weights:  20%|█▉        | 39/198 [00:00<00:00, 843.08it/s, Materializing param=vit.encoder.layer.2.attention.attention.query.bias]
+Loading weights:  20%|█▉        | 39/198 [00:00<00:00, 840.27it/s, Materializing param=vit.encoder.layer.2.attention.attention.query.bias]
+Loading weights:  20%|██        | 40/198 [00:00<00:00, 855.26it/s, Materializing param=vit.encoder.layer.2.attention.attention.query.weight]
+Loading weights:  20%|██        | 40/198 [00:00<00:00, 852.39it/s, Materializing param=vit.encoder.layer.2.attention.attention.query.weight]
+Loading weights:  21%|██        | 41/198 [00:00<00:00, 867.16it/s, Materializing param=vit.encoder.layer.2.attention.attention.value.bias]  
+Loading weights:  21%|██        | 41/198 [00:00<00:00, 864.28it/s, Materializing param=vit.encoder.layer.2.attention.attention.value.bias]
+Loading weights:  21%|██        | 42/198 [00:00<00:00, 878.80it/s, Materializing param=vit.encoder.layer.2.attention.attention.value.weight]
+Loading weights:  21%|██        | 42/198 [00:00<00:00, 875.99it/s, Materializing param=vit.encoder.layer.2.attention.attention.value.weight]
+Loading weights:  22%|██▏       | 43/198 [00:00<00:00, 890.27it/s, Materializing param=vit.encoder.layer.2.attention.output.dense.bias]     
+Loading weights:  22%|██▏       | 43/198 [00:00<00:00, 887.44it/s, Materializing param=vit.encoder.layer.2.attention.output.dense.bias]
+Loading weights:  22%|██▏       | 44/198 [00:00<00:00, 901.50it/s, Materializing param=vit.encoder.layer.2.attention.output.dense.weight]
+Loading weights:  22%|██▏       | 44/198 [00:00<00:00, 898.65it/s, Materializing param=vit.encoder.layer.2.attention.output.dense.weight]
+Loading weights:  23%|██▎       | 45/198 [00:00<00:00, 910.62it/s, Materializing param=vit.encoder.layer.2.intermediate.dense.bias]      
+Loading weights:  23%|██▎       | 45/198 [00:00<00:00, 906.78it/s, Materializing param=vit.encoder.layer.2.intermediate.dense.bias]
+Loading weights:  23%|██▎       | 46/198 [00:00<00:00, 920.73it/s, Materializing param=vit.encoder.layer.2.intermediate.dense.weight]
+Loading weights:  23%|██▎       | 46/198 [00:00<00:00, 918.01it/s, Materializing param=vit.encoder.layer.2.intermediate.dense.weight]
+Loading weights:  24%|██▎       | 47/198 [00:00<00:00, 932.91it/s, Materializing param=vit.encoder.layer.2.layernorm_after.bias]     
+Loading weights:  24%|██▎       | 47/198 [00:00<00:00, 930.38it/s, Materializing param=vit.encoder.layer.2.layernorm_after.bias]
+Loading weights:  24%|██▍       | 48/198 [00:00<00:00, 945.28it/s, Materializing param=vit.encoder.layer.2.layernorm_after.weight]
+Loading weights:  24%|██▍       | 48/198 [00:00<00:00, 942.78it/s, Materializing param=vit.encoder.layer.2.layernorm_after.weight]
+Loading weights:  25%|██▍       | 49/198 [00:00<00:00, 957.65it/s, Materializing param=vit.encoder.layer.2.layernorm_before.bias] 
+Loading weights:  25%|██▍       | 49/198 [00:00<00:00, 955.18it/s, Materializing param=vit.encoder.layer.2.layernorm_before.bias]
+Loading weights:  25%|██▌       | 50/198 [00:00<00:00, 969.88it/s, Materializing param=vit.encoder.layer.2.layernorm_before.weight]
+Loading weights:  25%|██▌       | 50/198 [00:00<00:00, 967.47it/s, Materializing param=vit.encoder.layer.2.layernorm_before.weight]
+Loading weights:  26%|██▌       | 51/198 [00:00<00:00, 982.02it/s, Materializing param=vit.encoder.layer.2.output.dense.bias]      
+Loading weights:  26%|██▌       | 51/198 [00:00<00:00, 979.63it/s, Materializing param=vit.encoder.layer.2.output.dense.bias]
+Loading weights:  26%|██▋       | 52/198 [00:00<00:00, 993.97it/s, Materializing param=vit.encoder.layer.2.output.dense.weight]
+Loading weights:  26%|██▋       | 52/198 [00:00<00:00, 991.58it/s, Materializing param=vit.encoder.layer.2.output.dense.weight]
+Loading weights:  27%|██▋       | 53/198 [00:00<00:00, 1003.88it/s, Materializing param=vit.encoder.layer.3.attention.attention.key.bias]
+Loading weights:  27%|██▋       | 53/198 [00:00<00:00, 1001.12it/s, Materializing param=vit.encoder.layer.3.attention.attention.key.bias]
+Loading weights:  27%|██▋       | 54/198 [00:00<00:00, 1014.42it/s, Materializing param=vit.encoder.layer.3.attention.attention.key.weight]
+Loading weights:  27%|██▋       | 54/198 [00:00<00:00, 1011.85it/s, Materializing param=vit.encoder.layer.3.attention.attention.key.weight]
+Loading weights:  28%|██▊       | 55/198 [00:00<00:00, 1025.45it/s, Materializing param=vit.encoder.layer.3.attention.attention.query.bias]
+Loading weights:  28%|██▊       | 55/198 [00:00<00:00, 1022.94it/s, Materializing param=vit.encoder.layer.3.attention.attention.query.bias]
+Loading weights:  28%|██▊       | 56/198 [00:00<00:00, 1036.52it/s, Materializing param=vit.encoder.layer.3.attention.attention.query.weight]
+Loading weights:  28%|██▊       | 56/198 [00:00<00:00, 1034.00it/s, Materializing param=vit.encoder.layer.3.attention.attention.query.weight]
+Loading weights:  29%|██▉       | 57/198 [00:00<00:00, 1047.45it/s, Materializing param=vit.encoder.layer.3.attention.attention.value.bias]  
+Loading weights:  29%|██▉       | 57/198 [00:00<00:00, 1044.93it/s, Materializing param=vit.encoder.layer.3.attention.attention.value.bias]
+Loading weights:  29%|██▉       | 58/198 [00:00<00:00, 1058.20it/s, Materializing param=vit.encoder.layer.3.attention.attention.value.weight]
+Loading weights:  29%|██▉       | 58/198 [00:00<00:00, 1055.67it/s, Materializing param=vit.encoder.layer.3.attention.attention.value.weight]
+Loading weights:  30%|██▉       | 59/198 [00:00<00:00, 1068.75it/s, Materializing param=vit.encoder.layer.3.attention.output.dense.bias]     
+Loading weights:  30%|██▉       | 59/198 [00:00<00:00, 1066.24it/s, Materializing param=vit.encoder.layer.3.attention.output.dense.bias]
+Loading weights:  30%|███       | 60/198 [00:00<00:00, 1079.18it/s, Materializing param=vit.encoder.layer.3.attention.output.dense.weight]
+Loading weights:  30%|███       | 60/198 [00:00<00:00, 1076.65it/s, Materializing param=vit.encoder.layer.3.attention.output.dense.weight]
+Loading weights:  31%|███       | 61/198 [00:00<00:00, 1089.55it/s, Materializing param=vit.encoder.layer.3.intermediate.dense.bias]      
+Loading weights:  31%|███       | 61/198 [00:00<00:00, 1087.02it/s, Materializing param=vit.encoder.layer.3.intermediate.dense.bias]
+Loading weights:  31%|███▏      | 62/198 [00:00<00:00, 1099.85it/s, Materializing param=vit.encoder.layer.3.intermediate.dense.weight]
+Loading weights:  31%|███▏      | 62/198 [00:00<00:00, 1097.32it/s, Materializing param=vit.encoder.layer.3.intermediate.dense.weight]
+Loading weights:  32%|███▏      | 63/198 [00:00<00:00, 1110.06it/s, Materializing param=vit.encoder.layer.3.layernorm_after.bias]     
+Loading weights:  32%|███▏      | 63/198 [00:00<00:00, 1107.55it/s, Materializing param=vit.encoder.layer.3.layernorm_after.bias]
+Loading weights:  32%|███▏      | 64/198 [00:00<00:00, 1120.22it/s, Materializing param=vit.encoder.layer.3.layernorm_after.weight]
+Loading weights:  32%|███▏      | 64/198 [00:00<00:00, 1117.45it/s, Materializing param=vit.encoder.layer.3.layernorm_after.weight]
+Loading weights:  33%|███▎      | 65/198 [00:00<00:00, 1130.03it/s, Materializing param=vit.encoder.layer.3.layernorm_before.bias] 
+Loading weights:  33%|███▎      | 65/198 [00:00<00:00, 1127.67it/s, Materializing param=vit.encoder.layer.3.layernorm_before.bias]
+Loading weights:  33%|███▎      | 66/198 [00:00<00:00, 1140.43it/s, Materializing param=vit.encoder.layer.3.layernorm_before.weight]
+Loading weights:  33%|███▎      | 66/198 [00:00<00:00, 1138.09it/s, Materializing param=vit.encoder.layer.3.layernorm_before.weight]
+Loading weights:  34%|███▍      | 67/198 [00:00<00:00, 1150.78it/s, Materializing param=vit.encoder.layer.3.output.dense.bias]      
+Loading weights:  34%|███▍      | 67/198 [00:00<00:00, 1148.47it/s, Materializing param=vit.encoder.layer.3.output.dense.bias]
+Loading weights:  34%|███▍      | 68/198 [00:00<00:00, 1161.03it/s, Materializing param=vit.encoder.layer.3.output.dense.weight]
+Loading weights:  34%|███▍      | 68/198 [00:00<00:00, 1158.76it/s, Materializing param=vit.encoder.layer.3.output.dense.weight]
+Loading weights:  35%|███▍      | 69/198 [00:00<00:00, 1171.27it/s, Materializing param=vit.encoder.layer.4.attention.attention.key.bias]
+Loading weights:  35%|███▍      | 69/198 [00:00<00:00, 1168.95it/s, Materializing param=vit.encoder.layer.4.attention.attention.key.bias]
+Loading weights:  35%|███▌      | 70/198 [00:00<00:00, 1181.08it/s, Materializing param=vit.encoder.layer.4.attention.attention.key.weight]
+Loading weights:  35%|███▌      | 70/198 [00:00<00:00, 1178.73it/s, Materializing param=vit.encoder.layer.4.attention.attention.key.weight]
+Loading weights:  36%|███▌      | 71/198 [00:00<00:00, 1190.81it/s, Materializing param=vit.encoder.layer.4.attention.attention.query.bias]
+Loading weights:  36%|███▌      | 71/198 [00:00<00:00, 1188.45it/s, Materializing param=vit.encoder.layer.4.attention.attention.query.bias]
+Loading weights:  36%|███▋      | 72/198 [00:00<00:00, 1200.38it/s, Materializing param=vit.encoder.layer.4.attention.attention.query.weight]
+Loading weights:  36%|███▋      | 72/198 [00:00<00:00, 1197.96it/s, Materializing param=vit.encoder.layer.4.attention.attention.query.weight]
+Loading weights:  37%|███▋      | 73/198 [00:00<00:00, 1209.75it/s, Materializing param=vit.encoder.layer.4.attention.attention.value.bias]  
+Loading weights:  37%|███▋      | 73/198 [00:00<00:00, 1207.28it/s, Materializing param=vit.encoder.layer.4.attention.attention.value.bias]
+Loading weights:  37%|███▋      | 74/198 [00:00<00:00, 1218.92it/s, Materializing param=vit.encoder.layer.4.attention.attention.value.weight]
+Loading weights:  37%|███▋      | 74/198 [00:00<00:00, 1216.48it/s, Materializing param=vit.encoder.layer.4.attention.attention.value.weight]
+Loading weights:  38%|███▊      | 75/198 [00:00<00:00, 1227.55it/s, Materializing param=vit.encoder.layer.4.attention.output.dense.bias]     
+Loading weights:  38%|███▊      | 75/198 [00:00<00:00, 1224.81it/s, Materializing param=vit.encoder.layer.4.attention.output.dense.bias]
+Loading weights:  38%|███▊      | 76/198 [00:00<00:00, 1236.15it/s, Materializing param=vit.encoder.layer.4.attention.output.dense.weight]
+Loading weights:  38%|███▊      | 76/198 [00:00<00:00, 1233.72it/s, Materializing param=vit.encoder.layer.4.attention.output.dense.weight]
+Loading weights:  39%|███▉      | 77/198 [00:00<00:00, 1245.09it/s, Materializing param=vit.encoder.layer.4.intermediate.dense.bias]      
+Loading weights:  39%|███▉      | 77/198 [00:00<00:00, 1242.34it/s, Materializing param=vit.encoder.layer.4.intermediate.dense.bias]
+Loading weights:  39%|███▉      | 78/198 [00:00<00:00, 1253.66it/s, Materializing param=vit.encoder.layer.4.intermediate.dense.weight]
+Loading weights:  39%|███▉      | 78/198 [00:00<00:00, 1251.27it/s, Materializing param=vit.encoder.layer.4.intermediate.dense.weight]
+Loading weights:  40%|███▉      | 79/198 [00:00<00:00, 1262.19it/s, Materializing param=vit.encoder.layer.4.layernorm_after.bias]     
+Loading weights:  40%|███▉      | 79/198 [00:00<00:00, 1259.79it/s, Materializing param=vit.encoder.layer.4.layernorm_after.bias]
+Loading weights:  40%|████      | 80/198 [00:00<00:00, 1270.79it/s, Materializing param=vit.encoder.layer.4.layernorm_after.weight]
+Loading weights:  40%|████      | 80/198 [00:00<00:00, 1268.34it/s, Materializing param=vit.encoder.layer.4.layernorm_after.weight]
+Loading weights:  41%|████      | 81/198 [00:00<00:00, 1279.56it/s, Materializing param=vit.encoder.layer.4.layernorm_before.bias] 
+Loading weights:  41%|████      | 81/198 [00:00<00:00, 1277.17it/s, Materializing param=vit.encoder.layer.4.layernorm_before.bias]
+Loading weights:  41%|████▏     | 82/198 [00:00<00:00, 1288.28it/s, Materializing param=vit.encoder.layer.4.layernorm_before.weight]
+Loading weights:  41%|████▏     | 82/198 [00:00<00:00, 1285.88it/s, Materializing param=vit.encoder.layer.4.layernorm_before.weight]
+Loading weights:  42%|████▏     | 83/198 [00:00<00:00, 1296.93it/s, Materializing param=vit.encoder.layer.4.output.dense.bias]      
+Loading weights:  42%|████▏     | 83/198 [00:00<00:00, 1294.54it/s, Materializing param=vit.encoder.layer.4.output.dense.bias]
+Loading weights:  42%|████▏     | 84/198 [00:00<00:00, 1305.40it/s, Materializing param=vit.encoder.layer.4.output.dense.weight]
+Loading weights:  42%|████▏     | 84/198 [00:00<00:00, 1303.05it/s, Materializing param=vit.encoder.layer.4.output.dense.weight]
+Loading weights:  43%|████▎     | 85/198 [00:00<00:00, 1313.85it/s, Materializing param=vit.encoder.layer.5.attention.attention.key.bias]
+Loading weights:  43%|████▎     | 85/198 [00:00<00:00, 1311.45it/s, Materializing param=vit.encoder.layer.5.attention.attention.key.bias]
+Loading weights:  43%|████▎     | 86/198 [00:00<00:00, 1321.94it/s, Materializing param=vit.encoder.layer.5.attention.attention.key.weight]
+Loading weights:  43%|████▎     | 86/198 [00:00<00:00, 1319.47it/s, Materializing param=vit.encoder.layer.5.attention.attention.key.weight]
+Loading weights:  44%|████▍     | 87/198 [00:00<00:00, 1329.59it/s, Materializing param=vit.encoder.layer.5.attention.attention.query.bias]
+Loading weights:  44%|████▍     | 87/198 [00:00<00:00, 1327.15it/s, Materializing param=vit.encoder.layer.5.attention.attention.query.bias]
+Loading weights:  44%|████▍     | 88/198 [00:00<00:00, 1337.50it/s, Materializing param=vit.encoder.layer.5.attention.attention.query.weight]
+Loading weights:  44%|████▍     | 88/198 [00:00<00:00, 1335.05it/s, Materializing param=vit.encoder.layer.5.attention.attention.query.weight]
+Loading weights:  45%|████▍     | 89/198 [00:00<00:00, 1345.24it/s, Materializing param=vit.encoder.layer.5.attention.attention.value.bias]  
+Loading weights:  45%|████▍     | 89/198 [00:00<00:00, 1342.80it/s, Materializing param=vit.encoder.layer.5.attention.attention.value.bias]
+Loading weights:  45%|████▌     | 90/198 [00:00<00:00, 1352.99it/s, Materializing param=vit.encoder.layer.5.attention.attention.value.weight]
+Loading weights:  45%|████▌     | 90/198 [00:00<00:00, 1350.56it/s, Materializing param=vit.encoder.layer.5.attention.attention.value.weight]
+Loading weights:  46%|████▌     | 91/198 [00:00<00:00, 1360.64it/s, Materializing param=vit.encoder.layer.5.attention.output.dense.bias]     
+Loading weights:  46%|████▌     | 91/198 [00:00<00:00, 1358.25it/s, Materializing param=vit.encoder.layer.5.attention.output.dense.bias]
+Loading weights:  46%|████▋     | 92/198 [00:00<00:00, 1368.26it/s, Materializing param=vit.encoder.layer.5.attention.output.dense.weight]
+Loading weights:  46%|████▋     | 92/198 [00:00<00:00, 1365.99it/s, Materializing param=vit.encoder.layer.5.attention.output.dense.weight]
+Loading weights:  47%|████▋     | 93/198 [00:00<00:00, 1377.62it/s, Materializing param=vit.encoder.layer.5.intermediate.dense.bias]      
+Loading weights:  47%|████▋     | 93/198 [00:00<00:00, 1376.04it/s, Materializing param=vit.encoder.layer.5.intermediate.dense.bias]
+Loading weights:  47%|████▋     | 94/198 [00:00<00:00, 1387.67it/s, Materializing param=vit.encoder.layer.5.intermediate.dense.weight]
+Loading weights:  47%|████▋     | 94/198 [00:00<00:00, 1386.10it/s, Materializing param=vit.encoder.layer.5.intermediate.dense.weight]
+Loading weights:  48%|████▊     | 95/198 [00:00<00:00, 1397.75it/s, Materializing param=vit.encoder.layer.5.layernorm_after.bias]     
+Loading weights:  48%|████▊     | 95/198 [00:00<00:00, 1396.16it/s, Materializing param=vit.encoder.layer.5.layernorm_after.bias]
+Loading weights:  48%|████▊     | 96/198 [00:00<00:00, 1407.78it/s, Materializing param=vit.encoder.layer.5.layernorm_after.weight]
+Loading weights:  48%|████▊     | 96/198 [00:00<00:00, 1406.19it/s, Materializing param=vit.encoder.layer.5.layernorm_after.weight]
+Loading weights:  49%|████▉     | 97/198 [00:00<00:00, 1417.78it/s, Materializing param=vit.encoder.layer.5.layernorm_before.bias] 
+Loading weights:  49%|████▉     | 97/198 [00:00<00:00, 1416.21it/s, Materializing param=vit.encoder.layer.5.layernorm_before.bias]
+Loading weights:  49%|████▉     | 98/198 [00:00<00:00, 1427.74it/s, Materializing param=vit.encoder.layer.5.layernorm_before.weight]
+Loading weights:  49%|████▉     | 98/198 [00:00<00:00, 1426.15it/s, Materializing param=vit.encoder.layer.5.layernorm_before.weight]
+Loading weights:  50%|█████     | 99/198 [00:00<00:00, 1437.63it/s, Materializing param=vit.encoder.layer.5.output.dense.bias]      
+Loading weights:  50%|█████     | 99/198 [00:00<00:00, 1436.04it/s, Materializing param=vit.encoder.layer.5.output.dense.bias]
+Loading weights:  51%|█████     | 100/198 [00:00<00:00, 1447.36it/s, Materializing param=vit.encoder.layer.5.output.dense.weight]
+Loading weights:  51%|█████     | 100/198 [00:00<00:00, 1445.79it/s, Materializing param=vit.encoder.layer.5.output.dense.weight]
+Loading weights:  51%|█████     | 101/198 [00:00<00:00, 1456.88it/s, Materializing param=vit.encoder.layer.6.attention.attention.key.bias]
+Loading weights:  51%|█████     | 101/198 [00:00<00:00, 1455.27it/s, Materializing param=vit.encoder.layer.6.attention.attention.key.bias]
+Loading weights:  52%|█████▏    | 102/198 [00:00<00:00, 1466.43it/s, Materializing param=vit.encoder.layer.6.attention.attention.key.weight]
+Loading weights:  52%|█████▏    | 102/198 [00:00<00:00, 1464.79it/s, Materializing param=vit.encoder.layer.6.attention.attention.key.weight]
+Loading weights:  52%|█████▏    | 103/198 [00:00<00:00, 1475.91it/s, Materializing param=vit.encoder.layer.6.attention.attention.query.bias]
+Loading weights:  52%|█████▏    | 103/198 [00:00<00:00, 1474.29it/s, Materializing param=vit.encoder.layer.6.attention.attention.query.bias]
+Loading weights:  53%|█████▎    | 104/198 [00:00<00:00, 1485.26it/s, Materializing param=vit.encoder.layer.6.attention.attention.query.weight]
+Loading weights:  53%|█████▎    | 104/198 [00:00<00:00, 1483.62it/s, Materializing param=vit.encoder.layer.6.attention.attention.query.weight]
+Loading weights:  53%|█████▎    | 105/198 [00:00<00:00, 1494.60it/s, Materializing param=vit.encoder.layer.6.attention.attention.value.bias]  
+Loading weights:  53%|█████▎    | 105/198 [00:00<00:00, 1492.96it/s, Materializing param=vit.encoder.layer.6.attention.attention.value.bias]
+Loading weights:  54%|█████▎    | 106/198 [00:00<00:00, 1503.87it/s, Materializing param=vit.encoder.layer.6.attention.attention.value.weight]
+Loading weights:  54%|█████▎    | 106/198 [00:00<00:00, 1502.22it/s, Materializing param=vit.encoder.layer.6.attention.attention.value.weight]
+Loading weights:  54%|█████▍    | 107/198 [00:00<00:00, 1513.04it/s, Materializing param=vit.encoder.layer.6.attention.output.dense.bias]     
+Loading weights:  54%|█████▍    | 107/198 [00:00<00:00, 1511.38it/s, Materializing param=vit.encoder.layer.6.attention.output.dense.bias]
+Loading weights:  55%|█████▍    | 108/198 [00:00<00:00, 1521.81it/s, Materializing param=vit.encoder.layer.6.attention.output.dense.weight]
+Loading weights:  55%|█████▍    | 108/198 [00:00<00:00, 1520.13it/s, Materializing param=vit.encoder.layer.6.attention.output.dense.weight]
+Loading weights:  55%|█████▌    | 109/198 [00:00<00:00, 1530.87it/s, Materializing param=vit.encoder.layer.6.intermediate.dense.bias]      
+Loading weights:  55%|█████▌    | 109/198 [00:00<00:00, 1529.23it/s, Materializing param=vit.encoder.layer.6.intermediate.dense.bias]
+Loading weights:  56%|█████▌    | 110/198 [00:00<00:00, 1539.98it/s, Materializing param=vit.encoder.layer.6.intermediate.dense.weight]
+Loading weights:  56%|█████▌    | 110/198 [00:00<00:00, 1538.34it/s, Materializing param=vit.encoder.layer.6.intermediate.dense.weight]
+Loading weights:  56%|█████▌    | 111/198 [00:00<00:00, 1549.12it/s, Materializing param=vit.encoder.layer.6.layernorm_after.bias]     
+Loading weights:  56%|█████▌    | 111/198 [00:00<00:00, 1547.47it/s, Materializing param=vit.encoder.layer.6.layernorm_after.bias]
+Loading weights:  57%|█████▋    | 112/198 [00:00<00:00, 1557.96it/s, Materializing param=vit.encoder.layer.6.layernorm_after.weight]
+Loading weights:  57%|█████▋    | 112/198 [00:00<00:00, 1556.27it/s, Materializing param=vit.encoder.layer.6.layernorm_after.weight]
+Loading weights:  57%|█████▋    | 113/198 [00:00<00:00, 1566.95it/s, Materializing param=vit.encoder.layer.6.layernorm_before.bias] 
+Loading weights:  57%|█████▋    | 113/198 [00:00<00:00, 1565.29it/s, Materializing param=vit.encoder.layer.6.layernorm_before.bias]
+Loading weights:  58%|█████▊    | 114/198 [00:00<00:00, 1575.94it/s, Materializing param=vit.encoder.layer.6.layernorm_before.weight]
+Loading weights:  58%|█████▊    | 114/198 [00:00<00:00, 1574.29it/s, Materializing param=vit.encoder.layer.6.layernorm_before.weight]
+Loading weights:  58%|█████▊    | 115/198 [00:00<00:00, 1584.92it/s, Materializing param=vit.encoder.layer.6.output.dense.bias]      
+Loading weights:  58%|█████▊    | 115/198 [00:00<00:00, 1583.28it/s, Materializing param=vit.encoder.layer.6.output.dense.bias]
+Loading weights:  59%|█████▊    | 116/198 [00:00<00:00, 1593.73it/s, Materializing param=vit.encoder.layer.6.output.dense.weight]
+Loading weights:  59%|█████▊    | 116/198 [00:00<00:00, 1591.81it/s, Materializing param=vit.encoder.layer.6.output.dense.weight]
+Loading weights:  59%|█████▉    | 117/198 [00:00<00:00, 1602.13it/s, Materializing param=vit.encoder.layer.7.attention.attention.key.bias]
+Loading weights:  59%|█████▉    | 117/198 [00:00<00:00, 1600.46it/s, Materializing param=vit.encoder.layer.7.attention.attention.key.bias]
+Loading weights:  60%|█████▉    | 118/198 [00:00<00:00, 1610.45it/s, Materializing param=vit.encoder.layer.7.attention.attention.key.weight]
+Loading weights:  60%|█████▉    | 118/198 [00:00<00:00, 1608.72it/s, Materializing param=vit.encoder.layer.7.attention.attention.key.weight]
+Loading weights:  60%|██████    | 119/198 [00:00<00:00, 1618.94it/s, Materializing param=vit.encoder.layer.7.attention.attention.query.bias]
+Loading weights:  60%|██████    | 119/198 [00:00<00:00, 1617.26it/s, Materializing param=vit.encoder.layer.7.attention.attention.query.bias]
+Loading weights:  61%|██████    | 120/198 [00:00<00:00, 1627.42it/s, Materializing param=vit.encoder.layer.7.attention.attention.query.weight]
+Loading weights:  61%|██████    | 120/198 [00:00<00:00, 1625.74it/s, Materializing param=vit.encoder.layer.7.attention.attention.query.weight]
+Loading weights:  61%|██████    | 121/198 [00:00<00:00, 1635.89it/s, Materializing param=vit.encoder.layer.7.attention.attention.value.bias]  
+Loading weights:  61%|██████    | 121/198 [00:00<00:00, 1634.16it/s, Materializing param=vit.encoder.layer.7.attention.attention.value.bias]
+Loading weights:  62%|██████▏   | 122/198 [00:00<00:00, 1644.22it/s, Materializing param=vit.encoder.layer.7.attention.attention.value.weight]
+Loading weights:  62%|██████▏   | 122/198 [00:00<00:00, 1642.52it/s, Materializing param=vit.encoder.layer.7.attention.attention.value.weight]
+Loading weights:  62%|██████▏   | 123/198 [00:00<00:00, 1652.56it/s, Materializing param=vit.encoder.layer.7.attention.output.dense.bias]     
+Loading weights:  62%|██████▏   | 123/198 [00:00<00:00, 1650.87it/s, Materializing param=vit.encoder.layer.7.attention.output.dense.bias]
+Loading weights:  63%|██████▎   | 124/198 [00:00<00:00, 1660.79it/s, Materializing param=vit.encoder.layer.7.attention.output.dense.weight]
+Loading weights:  63%|██████▎   | 124/198 [00:00<00:00, 1659.08it/s, Materializing param=vit.encoder.layer.7.attention.output.dense.weight]
+Loading weights:  63%|██████▎   | 125/198 [00:00<00:00, 1669.06it/s, Materializing param=vit.encoder.layer.7.intermediate.dense.bias]      
+Loading weights:  63%|██████▎   | 125/198 [00:00<00:00, 1667.37it/s, Materializing param=vit.encoder.layer.7.intermediate.dense.bias]
+Loading weights:  64%|██████▎   | 126/198 [00:00<00:00, 1677.34it/s, Materializing param=vit.encoder.layer.7.intermediate.dense.weight]
+Loading weights:  64%|██████▎   | 126/198 [00:00<00:00, 1675.64it/s, Materializing param=vit.encoder.layer.7.intermediate.dense.weight]
+Loading weights:  64%|██████▍   | 127/198 [00:00<00:00, 1685.57it/s, Materializing param=vit.encoder.layer.7.layernorm_after.bias]     
+Loading weights:  64%|██████▍   | 127/198 [00:00<00:00, 1683.84it/s, Materializing param=vit.encoder.layer.7.layernorm_after.bias]
+Loading weights:  65%|██████▍   | 128/198 [00:00<00:00, 1693.76it/s, Materializing param=vit.encoder.layer.7.layernorm_after.weight]
+Loading weights:  65%|██████▍   | 128/198 [00:00<00:00, 1692.02it/s, Materializing param=vit.encoder.layer.7.layernorm_after.weight]
+Loading weights:  65%|██████▌   | 129/198 [00:00<00:00, 1701.90it/s, Materializing param=vit.encoder.layer.7.layernorm_before.bias] 
+Loading weights:  65%|██████▌   | 129/198 [00:00<00:00, 1700.20it/s, Materializing param=vit.encoder.layer.7.layernorm_before.bias]
+Loading weights:  66%|██████▌   | 130/198 [00:00<00:00, 1710.07it/s, Materializing param=vit.encoder.layer.7.layernorm_before.weight]
+Loading weights:  66%|██████▌   | 130/198 [00:00<00:00, 1708.36it/s, Materializing param=vit.encoder.layer.7.layernorm_before.weight]
+Loading weights:  66%|██████▌   | 131/198 [00:00<00:00, 1718.21it/s, Materializing param=vit.encoder.layer.7.output.dense.bias]      
+Loading weights:  66%|██████▌   | 131/198 [00:00<00:00, 1716.56it/s, Materializing param=vit.encoder.layer.7.output.dense.bias]
+Loading weights:  67%|██████▋   | 132/198 [00:00<00:00, 1726.31it/s, Materializing param=vit.encoder.layer.7.output.dense.weight]
+Loading weights:  67%|██████▋   | 132/198 [00:00<00:00, 1724.65it/s, Materializing param=vit.encoder.layer.7.output.dense.weight]
+Loading weights:  67%|██████▋   | 133/198 [00:00<00:00, 1734.32it/s, Materializing param=vit.encoder.layer.8.attention.attention.key.bias]
+Loading weights:  67%|██████▋   | 133/198 [00:00<00:00, 1732.34it/s, Materializing param=vit.encoder.layer.8.attention.attention.key.bias]
+Loading weights:  68%|██████▊   | 134/198 [00:00<00:00, 1741.75it/s, Materializing param=vit.encoder.layer.8.attention.attention.key.weight]
+Loading weights:  68%|██████▊   | 134/198 [00:00<00:00, 1740.02it/s, Materializing param=vit.encoder.layer.8.attention.attention.key.weight]
+Loading weights:  68%|██████▊   | 135/198 [00:00<00:00, 1749.48it/s, Materializing param=vit.encoder.layer.8.attention.attention.query.bias]
+Loading weights:  68%|██████▊   | 135/198 [00:00<00:00, 1747.52it/s, Materializing param=vit.encoder.layer.8.attention.attention.query.bias]
+Loading weights:  69%|██████▊   | 136/198 [00:00<00:00, 1756.87it/s, Materializing param=vit.encoder.layer.8.attention.attention.query.weight]
+Loading weights:  69%|██████▊   | 136/198 [00:00<00:00, 1755.10it/s, Materializing param=vit.encoder.layer.8.attention.attention.query.weight]
+Loading weights:  69%|██████▉   | 137/198 [00:00<00:00, 1764.51it/s, Materializing param=vit.encoder.layer.8.attention.attention.value.bias]  
+Loading weights:  69%|██████▉   | 137/198 [00:00<00:00, 1762.77it/s, Materializing param=vit.encoder.layer.8.attention.attention.value.bias]
+Loading weights:  70%|██████▉   | 138/198 [00:00<00:00, 1772.10it/s, Materializing param=vit.encoder.layer.8.attention.attention.value.weight]
+Loading weights:  70%|██████▉   | 138/198 [00:00<00:00, 1770.38it/s, Materializing param=vit.encoder.layer.8.attention.attention.value.weight]
+Loading weights:  70%|███████   | 139/198 [00:00<00:00, 1779.62it/s, Materializing param=vit.encoder.layer.8.attention.output.dense.bias]     
+Loading weights:  70%|███████   | 139/198 [00:00<00:00, 1778.44it/s, Materializing param=vit.encoder.layer.8.attention.output.dense.bias]
+Loading weights:  71%|███████   | 140/198 [00:00<00:00, 1788.77it/s, Materializing param=vit.encoder.layer.8.attention.output.dense.weight]
+Loading weights:  71%|███████   | 140/198 [00:00<00:00, 1787.59it/s, Materializing param=vit.encoder.layer.8.attention.output.dense.weight]
+Loading weights:  71%|███████   | 141/198 [00:00<00:00, 1797.95it/s, Materializing param=vit.encoder.layer.8.intermediate.dense.bias]      
+Loading weights:  71%|███████   | 141/198 [00:00<00:00, 1796.76it/s, Materializing param=vit.encoder.layer.8.intermediate.dense.bias]
+Loading weights:  72%|███████▏  | 142/198 [00:00<00:00, 1807.11it/s, Materializing param=vit.encoder.layer.8.intermediate.dense.weight]
+Loading weights:  72%|███████▏  | 142/198 [00:00<00:00, 1805.92it/s, Materializing param=vit.encoder.layer.8.intermediate.dense.weight]
+Loading weights:  72%|███████▏  | 143/198 [00:00<00:00, 1816.28it/s, Materializing param=vit.encoder.layer.8.layernorm_after.bias]     
+Loading weights:  72%|███████▏  | 143/198 [00:00<00:00, 1815.11it/s, Materializing param=vit.encoder.layer.8.layernorm_after.bias]
+Loading weights:  73%|███████▎  | 144/198 [00:00<00:00, 1825.51it/s, Materializing param=vit.encoder.layer.8.layernorm_after.weight]
+Loading weights:  73%|███████▎  | 144/198 [00:00<00:00, 1824.34it/s, Materializing param=vit.encoder.layer.8.layernorm_after.weight]
+Loading weights:  73%|███████▎  | 145/198 [00:00<00:00, 1834.75it/s, Materializing param=vit.encoder.layer.8.layernorm_before.bias] 
+Loading weights:  73%|███████▎  | 145/198 [00:00<00:00, 1833.58it/s, Materializing param=vit.encoder.layer.8.layernorm_before.bias]
+Loading weights:  74%|███████▎  | 146/198 [00:00<00:00, 1843.91it/s, Materializing param=vit.encoder.layer.8.layernorm_before.weight]
+Loading weights:  74%|███████▎  | 146/198 [00:00<00:00, 1842.72it/s, Materializing param=vit.encoder.layer.8.layernorm_before.weight]
+Loading weights:  74%|███████▍  | 147/198 [00:00<00:00, 1853.00it/s, Materializing param=vit.encoder.layer.8.output.dense.bias]      
+Loading weights:  74%|███████▍  | 147/198 [00:00<00:00, 1851.80it/s, Materializing param=vit.encoder.layer.8.output.dense.bias]
+Loading weights:  75%|███████▍  | 148/198 [00:00<00:00, 1861.95it/s, Materializing param=vit.encoder.layer.8.output.dense.weight]
+Loading weights:  75%|███████▍  | 148/198 [00:00<00:00, 1860.75it/s, Materializing param=vit.encoder.layer.8.output.dense.weight]
+Loading weights:  75%|███████▌  | 149/198 [00:00<00:00, 1870.90it/s, Materializing param=vit.encoder.layer.9.attention.attention.key.bias]
+Loading weights:  75%|███████▌  | 149/198 [00:00<00:00, 1869.67it/s, Materializing param=vit.encoder.layer.9.attention.attention.key.bias]
+Loading weights:  76%|███████▌  | 150/198 [00:00<00:00, 1879.67it/s, Materializing param=vit.encoder.layer.9.attention.attention.key.weight]
+Loading weights:  76%|███████▌  | 150/198 [00:00<00:00, 1878.43it/s, Materializing param=vit.encoder.layer.9.attention.attention.key.weight]
+Loading weights:  76%|███████▋  | 151/198 [00:00<00:00, 1888.42it/s, Materializing param=vit.encoder.layer.9.attention.attention.query.bias]
+Loading weights:  76%|███████▋  | 151/198 [00:00<00:00, 1887.18it/s, Materializing param=vit.encoder.layer.9.attention.attention.query.bias]
+Loading weights:  77%|███████▋  | 152/198 [00:00<00:00, 1897.15it/s, Materializing param=vit.encoder.layer.9.attention.attention.query.weight]
+Loading weights:  77%|███████▋  | 152/198 [00:00<00:00, 1895.91it/s, Materializing param=vit.encoder.layer.9.attention.attention.query.weight]
+Loading weights:  77%|███████▋  | 153/198 [00:00<00:00, 1905.86it/s, Materializing param=vit.encoder.layer.9.attention.attention.value.bias]  
+Loading weights:  77%|███████▋  | 153/198 [00:00<00:00, 1904.23it/s, Materializing param=vit.encoder.layer.9.attention.attention.value.bias]
+Loading weights:  78%|███████▊  | 154/198 [00:00<00:00, 1914.12it/s, Materializing param=vit.encoder.layer.9.attention.attention.value.weight]
+Loading weights:  78%|███████▊  | 154/198 [00:00<00:00, 1912.86it/s, Materializing param=vit.encoder.layer.9.attention.attention.value.weight]
+Loading weights:  78%|███████▊  | 155/198 [00:00<00:00, 1922.69it/s, Materializing param=vit.encoder.layer.9.attention.output.dense.bias]     
+Loading weights:  78%|███████▊  | 155/198 [00:00<00:00, 1921.41it/s, Materializing param=vit.encoder.layer.9.attention.output.dense.bias]
+Loading weights:  79%|███████▉  | 156/198 [00:00<00:00, 1931.19it/s, Materializing param=vit.encoder.layer.9.attention.output.dense.weight]
+Loading weights:  79%|███████▉  | 156/198 [00:00<00:00, 1929.93it/s, Materializing param=vit.encoder.layer.9.attention.output.dense.weight]
+Loading weights:  79%|███████▉  | 157/198 [00:00<00:00, 1939.73it/s, Materializing param=vit.encoder.layer.9.intermediate.dense.bias]      
+Loading weights:  79%|███████▉  | 157/198 [00:00<00:00, 1938.48it/s, Materializing param=vit.encoder.layer.9.intermediate.dense.bias]
+Loading weights:  80%|███████▉  | 158/198 [00:00<00:00, 1948.32it/s, Materializing param=vit.encoder.layer.9.intermediate.dense.weight]
+Loading weights:  80%|███████▉  | 158/198 [00:00<00:00, 1947.06it/s, Materializing param=vit.encoder.layer.9.intermediate.dense.weight]
+Loading weights:  80%|████████  | 159/198 [00:00<00:00, 1955.72it/s, Materializing param=vit.encoder.layer.9.layernorm_after.bias]     
+Loading weights:  80%|████████  | 159/198 [00:00<00:00, 1953.94it/s, Materializing param=vit.encoder.layer.9.layernorm_after.bias]
+Loading weights:  81%|████████  | 160/198 [00:00<00:00, 1963.55it/s, Materializing param=vit.encoder.layer.9.layernorm_after.weight]
+Loading weights:  81%|████████  | 160/198 [00:00<00:00, 1962.28it/s, Materializing param=vit.encoder.layer.9.layernorm_after.weight]
+Loading weights:  81%|████████▏ | 161/198 [00:00<00:00, 1972.07it/s, Materializing param=vit.encoder.layer.9.layernorm_before.bias] 
+Loading weights:  81%|████████▏ | 161/198 [00:00<00:00, 1970.81it/s, Materializing param=vit.encoder.layer.9.layernorm_before.bias]
+Loading weights:  82%|████████▏ | 162/198 [00:00<00:00, 1980.59it/s, Materializing param=vit.encoder.layer.9.layernorm_before.weight]
+Loading weights:  82%|████████▏ | 162/198 [00:00<00:00, 1979.33it/s, Materializing param=vit.encoder.layer.9.layernorm_before.weight]
+Loading weights:  82%|████████▏ | 163/198 [00:00<00:00, 1989.09it/s, Materializing param=vit.encoder.layer.9.output.dense.bias]      
+Loading weights:  82%|████████▏ | 163/198 [00:00<00:00, 1987.82it/s, Materializing param=vit.encoder.layer.9.output.dense.bias]
+Loading weights:  83%|████████▎ | 164/198 [00:00<00:00, 1997.43it/s, Materializing param=vit.encoder.layer.9.output.dense.weight]
+Loading weights:  83%|████████▎ | 164/198 [00:00<00:00, 1996.17it/s, Materializing param=vit.encoder.layer.9.output.dense.weight]
+Loading weights:  83%|████████▎ | 165/198 [00:00<00:00, 2005.85it/s, Materializing param=vit.encoder.layer.10.attention.attention.key.bias]
+Loading weights:  83%|████████▎ | 165/198 [00:00<00:00, 2004.57it/s, Materializing param=vit.encoder.layer.10.attention.attention.key.bias]
+Loading weights:  84%|████████▍ | 166/198 [00:00<00:00, 2014.08it/s, Materializing param=vit.encoder.layer.10.attention.attention.key.weight]
+Loading weights:  84%|████████▍ | 166/198 [00:00<00:00, 2012.77it/s, Materializing param=vit.encoder.layer.10.attention.attention.key.weight]
+Loading weights:  84%|████████▍ | 167/198 [00:00<00:00, 2022.31it/s, Materializing param=vit.encoder.layer.10.attention.attention.query.bias]
+Loading weights:  84%|████████▍ | 167/198 [00:00<00:00, 2021.04it/s, Materializing param=vit.encoder.layer.10.attention.attention.query.bias]
+Loading weights:  85%|████████▍ | 168/198 [00:00<00:00, 2030.55it/s, Materializing param=vit.encoder.layer.10.attention.attention.query.weight]
+Loading weights:  85%|████████▍ | 168/198 [00:00<00:00, 2029.25it/s, Materializing param=vit.encoder.layer.10.attention.attention.query.weight]
+Loading weights:  85%|████████▌ | 169/198 [00:00<00:00, 2037.86it/s, Materializing param=vit.encoder.layer.10.attention.attention.value.bias]  
+Loading weights:  85%|████████▌ | 169/198 [00:00<00:00, 2036.39it/s, Materializing param=vit.encoder.layer.10.attention.attention.value.bias]
+Loading weights:  86%|████████▌ | 170/198 [00:00<00:00, 2045.53it/s, Materializing param=vit.encoder.layer.10.attention.attention.value.weight]
+Loading weights:  86%|████████▌ | 170/198 [00:00<00:00, 2044.22it/s, Materializing param=vit.encoder.layer.10.attention.attention.value.weight]
+Loading weights:  86%|████████▋ | 171/198 [00:00<00:00, 2053.60it/s, Materializing param=vit.encoder.layer.10.attention.output.dense.bias]     
+Loading weights:  86%|████████▋ | 171/198 [00:00<00:00, 2052.31it/s, Materializing param=vit.encoder.layer.10.attention.output.dense.bias]
+Loading weights:  87%|████████▋ | 172/198 [00:00<00:00, 2061.62it/s, Materializing param=vit.encoder.layer.10.attention.output.dense.weight]
+Loading weights:  87%|████████▋ | 172/198 [00:00<00:00, 2060.32it/s, Materializing param=vit.encoder.layer.10.attention.output.dense.weight]
+Loading weights:  87%|████████▋ | 173/198 [00:00<00:00, 2069.65it/s, Materializing param=vit.encoder.layer.10.intermediate.dense.bias]      
+Loading weights:  87%|████████▋ | 173/198 [00:00<00:00, 2068.37it/s, Materializing param=vit.encoder.layer.10.intermediate.dense.bias]
+Loading weights:  88%|████████▊ | 174/198 [00:00<00:00, 2077.71it/s, Materializing param=vit.encoder.layer.10.intermediate.dense.weight]
+Loading weights:  88%|████████▊ | 174/198 [00:00<00:00, 2076.42it/s, Materializing param=vit.encoder.layer.10.intermediate.dense.weight]
+Loading weights:  88%|████████▊ | 175/198 [00:00<00:00, 2085.79it/s, Materializing param=vit.encoder.layer.10.layernorm_after.bias]     
+Loading weights:  88%|████████▊ | 175/198 [00:00<00:00, 2084.50it/s, Materializing param=vit.encoder.layer.10.layernorm_after.bias]
+Loading weights:  89%|████████▉ | 176/198 [00:00<00:00, 2093.88it/s, Materializing param=vit.encoder.layer.10.layernorm_after.weight]
+Loading weights:  89%|████████▉ | 176/198 [00:00<00:00, 2092.61it/s, Materializing param=vit.encoder.layer.10.layernorm_after.weight]
+Loading weights:  89%|████████▉ | 177/198 [00:00<00:00, 2102.02it/s, Materializing param=vit.encoder.layer.10.layernorm_before.bias] 
+Loading weights:  89%|████████▉ | 177/198 [00:00<00:00, 2100.71it/s, Materializing param=vit.encoder.layer.10.layernorm_before.bias]
+Loading weights:  90%|████████▉ | 178/198 [00:00<00:00, 2110.02it/s, Materializing param=vit.encoder.layer.10.layernorm_before.weight]
+Loading weights:  90%|████████▉ | 178/198 [00:00<00:00, 2108.73it/s, Materializing param=vit.encoder.layer.10.layernorm_before.weight]
+Loading weights:  90%|█████████ | 179/198 [00:00<00:00, 2118.04it/s, Materializing param=vit.encoder.layer.10.output.dense.bias]      
+Loading weights:  90%|█████████ | 179/198 [00:00<00:00, 2116.73it/s, Materializing param=vit.encoder.layer.10.output.dense.bias]
+Loading weights:  91%|█████████ | 180/198 [00:00<00:00, 2125.96it/s, Materializing param=vit.encoder.layer.10.output.dense.weight]
+Loading weights:  91%|█████████ | 180/198 [00:00<00:00, 2124.69it/s, Materializing param=vit.encoder.layer.10.output.dense.weight]
+Loading weights:  91%|█████████▏| 181/198 [00:00<00:00, 2133.90it/s, Materializing param=vit.encoder.layer.11.attention.attention.key.bias]
+Loading weights:  91%|█████████▏| 181/198 [00:00<00:00, 2132.59it/s, Materializing param=vit.encoder.layer.11.attention.attention.key.bias]
+Loading weights:  92%|█████████▏| 182/198 [00:00<00:00, 2141.66it/s, Materializing param=vit.encoder.layer.11.attention.attention.key.weight]
+Loading weights:  92%|█████████▏| 182/198 [00:00<00:00, 2140.34it/s, Materializing param=vit.encoder.layer.11.attention.attention.key.weight]
+Loading weights:  92%|█████████▏| 183/198 [00:00<00:00, 2149.40it/s, Materializing param=vit.encoder.layer.11.attention.attention.query.bias]
+Loading weights:  92%|█████████▏| 183/198 [00:00<00:00, 2148.07it/s, Materializing param=vit.encoder.layer.11.attention.attention.query.bias]
+Loading weights:  93%|█████████▎| 184/198 [00:00<00:00, 2156.86it/s, Materializing param=vit.encoder.layer.11.attention.attention.query.weight]
+Loading weights:  93%|█████████▎| 184/198 [00:00<00:00, 2155.53it/s, Materializing param=vit.encoder.layer.11.attention.attention.query.weight]
+Loading weights:  93%|█████████▎| 185/198 [00:00<00:00, 2164.58it/s, Materializing param=vit.encoder.layer.11.attention.attention.value.bias]  
+Loading weights:  93%|█████████▎| 185/198 [00:00<00:00, 2163.25it/s, Materializing param=vit.encoder.layer.11.attention.attention.value.bias]
+Loading weights:  94%|█████████▍| 186/198 [00:00<00:00, 2172.25it/s, Materializing param=vit.encoder.layer.11.attention.attention.value.weight]
+Loading weights:  94%|█████████▍| 186/198 [00:00<00:00, 2170.91it/s, Materializing param=vit.encoder.layer.11.attention.attention.value.weight]
+Loading weights:  94%|█████████▍| 187/198 [00:00<00:00, 2179.87it/s, Materializing param=vit.encoder.layer.11.attention.output.dense.bias]     
+Loading weights:  94%|█████████▍| 187/198 [00:00<00:00, 2178.54it/s, Materializing param=vit.encoder.layer.11.attention.output.dense.bias]
+Loading weights:  95%|█████████▍| 188/198 [00:00<00:00, 2187.50it/s, Materializing param=vit.encoder.layer.11.attention.output.dense.weight]
+Loading weights:  95%|█████████▍| 188/198 [00:00<00:00, 2186.20it/s, Materializing param=vit.encoder.layer.11.attention.output.dense.weight]
+Loading weights:  95%|█████████▌| 189/198 [00:00<00:00, 2195.17it/s, Materializing param=vit.encoder.layer.11.intermediate.dense.bias]      
+Loading weights:  95%|█████████▌| 189/198 [00:00<00:00, 2193.86it/s, Materializing param=vit.encoder.layer.11.intermediate.dense.bias]
+Loading weights:  96%|█████████▌| 190/198 [00:00<00:00, 2202.84it/s, Materializing param=vit.encoder.layer.11.intermediate.dense.weight]
+Loading weights:  96%|█████████▌| 190/198 [00:00<00:00, 2201.53it/s, Materializing param=vit.encoder.layer.11.intermediate.dense.weight]
+Loading weights:  96%|█████████▋| 191/198 [00:00<00:00, 2210.54it/s, Materializing param=vit.encoder.layer.11.layernorm_after.bias]     
+Loading weights:  96%|█████████▋| 191/198 [00:00<00:00, 2209.23it/s, Materializing param=vit.encoder.layer.11.layernorm_after.bias]
+Loading weights:  97%|█████████▋| 192/198 [00:00<00:00, 2218.20it/s, Materializing param=vit.encoder.layer.11.layernorm_after.weight]
+Loading weights:  97%|█████████▋| 192/198 [00:00<00:00, 2216.89it/s, Materializing param=vit.encoder.layer.11.layernorm_after.weight]
+Loading weights:  97%|█████████▋| 193/198 [00:00<00:00, 2225.90it/s, Materializing param=vit.encoder.layer.11.layernorm_before.bias] 
+Loading weights:  97%|█████████▋| 193/198 [00:00<00:00, 2224.59it/s, Materializing param=vit.encoder.layer.11.layernorm_before.bias]
+Loading weights:  98%|█████████▊| 194/198 [00:00<00:00, 2233.53it/s, Materializing param=vit.encoder.layer.11.layernorm_before.weight]
+Loading weights:  98%|█████████▊| 194/198 [00:00<00:00, 2232.21it/s, Materializing param=vit.encoder.layer.11.layernorm_before.weight]
+Loading weights:  98%|█████████▊| 195/198 [00:00<00:00, 2241.11it/s, Materializing param=vit.encoder.layer.11.output.dense.bias]      
+Loading weights:  98%|█████████▊| 195/198 [00:00<00:00, 2239.80it/s, Materializing param=vit.encoder.layer.11.output.dense.bias]
+Loading weights:  99%|█████████▉| 196/198 [00:00<00:00, 2248.58it/s, Materializing param=vit.encoder.layer.11.output.dense.weight]
+Loading weights:  99%|█████████▉| 196/198 [00:00<00:00, 2247.28it/s, Materializing param=vit.encoder.layer.11.output.dense.weight]
+Loading weights:  99%|█████████▉| 197/198 [00:00<00:00, 2256.10it/s, Materializing param=vit.layernorm.bias]                      
+Loading weights:  99%|█████████▉| 197/198 [00:00<00:00, 2254.84it/s, Materializing param=vit.layernorm.bias]
+Loading weights: 100%|██████████| 198/198 [00:00<00:00, 2263.93it/s, Materializing param=vit.layernorm.weight]
+Loading weights: 100%|██████████| 198/198 [00:00<00:00, 2262.67it/s, Materializing param=vit.layernorm.weight]
+Loading weights: 100%|██████████| 198/198 [00:00<00:00, 2259.62it/s, Materializing param=vit.layernorm.weight]
+[1mViTForImageClassification LOAD REPORT[0m from: google/vit-base-patch16-224-in21k
+Key                 | Status     | 
+--------------------+------------+-
+pooler.dense.bias   | UNEXPECTED | 
+pooler.dense.weight | UNEXPECTED | 
+classifier.bias     | MISSING    | 
+classifier.weight   | MISSING    | 
+
+[3mNotes:
+- UNEXPECTED[3m	:can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+- MISSING[3m	:those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.[0m
+[model] Loading weights from 'BreastDCEDL_models/breastdcedl_pcr_vit_model_weights.pth' …
+[model] Injected Dropout(p=0.3) before classifier head
+[model] Freezing ViT encoder – only classifier head will be trained.
+[model] Trainable params: 1,538 / 85,800,194
+
+============================================================
+Starting fine-tuning  (5 freeze + 20 unfreeze epochs, patience=8)
+============================================================
+
+── Phase 1: head-only, lr=5.0e-04 ──
+  [Train] Epoch 01/25 step 0010/0174 | loss=0.7144  acc=0.375
+  [Train] Epoch 01/25 step 0020/0174 | loss=0.7116  acc=0.412
+  [Train] Epoch 01/25 step 0030/0174 | loss=0.7140  acc=0.433
+  [Train] Epoch 01/25 step 0040/0174 | loss=0.7101  acc=0.475
+  [Train] Epoch 01/25 step 0050/0174 | loss=0.7091  acc=0.477
+  [Train] Epoch 01/25 step 0060/0174 | loss=0.7083  acc=0.500
+  [Train] Epoch 01/25 step 0070/0174 | loss=0.7026  acc=0.523
+  [Train] Epoch 01/25 step 0080/0174 | loss=0.7007  acc=0.537
+  [Train] Epoch 01/25 step 0090/0174 | loss=0.6988  acc=0.549
+  [Train] Epoch 01/25 step 0100/0174 | loss=0.6981  acc=0.556
+  [Train] Epoch 01/25 step 0110/0174 | loss=0.6973  acc=0.561
+  [Train] Epoch 01/25 step 0120/0174 | loss=0.6981  acc=0.562
+  [Train] Epoch 01/25 step 0130/0174 | loss=0.6983  acc=0.562
+  [Train] Epoch 01/25 step 0140/0174 | loss=0.6965  acc=0.568
+  [Train] Epoch 01/25 step 0150/0174 | loss=0.6963  acc=0.568
+  [Train] Epoch 01/25 step 0160/0174 | loss=0.6975  acc=0.570
+  [Train] Epoch 01/25 step 0170/0174 | loss=0.6962  acc=0.576
+  [Train] Epoch 01/25 step 0174/0174 | loss=0.6961  acc=0.576
+  [  Val] Epoch 01/25 step 0010/0045 | loss=0.6313  acc=0.838
+  [  Val] Epoch 01/25 step 0020/0045 | loss=0.6658  acc=0.713
+  [  Val] Epoch 01/25 step 0030/0045 | loss=0.6514  acc=0.750
+  [  Val] Epoch 01/25 step 0040/0045 | loss=0.6517  acc=0.713
+  [  Val] Epoch 01/25 step 0045/0045 | loss=0.6576  acc=0.700
+  ✔  Epoch 01/25  [Phase 1]  train_loss=0.6961  train_acc=0.576  val_acc(slice)=0.700  val_acc(patient)=0.711  lr=4.52e-04
+  ⭐ New best patient-level val acc: 0.711 → checkpoints/breastdcedl_vit_best.pth
+  💾 Checkpoint → checkpoints/breastdcedl_vit_epoch01.pth
+
+  [Train] Epoch 02/25 step 0010/0174 | loss=0.6892  acc=0.550
+  [Train] Epoch 02/25 step 0020/0174 | loss=0.7052  acc=0.531
+  [Train] Epoch 02/25 step 0030/0174 | loss=0.6952  acc=0.546
+  [Train] Epoch 02/25 step 0040/0174 | loss=0.6991  acc=0.537
+  [Train] Epoch 02/25 step 0050/0174 | loss=0.6906  acc=0.560
+  [Train] Epoch 02/25 step 0060/0174 | loss=0.6948  acc=0.556
+  [Train] Epoch 02/25 step 0070/0174 | loss=0.6930  acc=0.552
+  [Train] Epoch 02/25 step 0080/0174 | loss=0.6939  acc=0.562
+  [Train] Epoch 02/25 step 0090/0174 | loss=0.6899  acc=0.579
+  [Train] Epoch 02/25 step 0100/0174 | loss=0.6888  acc=0.589
+  [Train] Epoch 02/25 step 0110/0174 | loss=0.6926  acc=0.594
+  [Train] Epoch 02/25 step 0120/0174 | loss=0.6909  acc=0.607
+  [Train] Epoch 02/25 step 0130/0174 | loss=0.6886  acc=0.619
+  [Train] Epoch 02/25 step 0140/0174 | loss=0.6880  acc=0.627
+  [Train] Epoch 02/25 step 0150/0174 | loss=0.6867  acc=0.637
+  [Train] Epoch 02/25 step 0160/0174 | loss=0.6854  acc=0.643
+  [Train] Epoch 02/25 step 0170/0174 | loss=0.6850  acc=0.645
+  [Train] Epoch 02/25 step 0174/0174 | loss=0.6849  acc=0.647
+  [  Val] Epoch 02/25 step 0010/0045 | loss=0.6255  acc=0.713
+  [  Val] Epoch 02/25 step 0020/0045 | loss=0.6693  acc=0.631
+  [  Val] Epoch 02/25 step 0030/0045 | loss=0.6543  acc=0.679
+  [  Val] Epoch 02/25 step 0040/0045 | loss=0.6554  acc=0.675
+  [  Val] Epoch 02/25 step 0045/0045 | loss=0.6618  acc=0.667
+  ✔  Epoch 02/25  [Phase 1]  train_loss=0.6849  train_acc=0.647  val_acc(slice)=0.667  val_acc(patient)=0.689  lr=3.28e-04
+  💾 Checkpoint → checkpoints/breastdcedl_vit_epoch02.pth
+
+  [Train] Epoch 03/25 step 0010/0174 | loss=0.6781  acc=0.625
+  [Train] Epoch 03/25 step 0020/0174 | loss=0.6808  acc=0.619
+  [Train] Epoch 03/25 step 0030/0174 | loss=0.6870  acc=0.617
+  [Train] Epoch 03/25 step 0040/0174 | loss=0.6825  acc=0.631
+  [Train] Epoch 03/25 step 0050/0174 | loss=0.6800  acc=0.627
+  [Train] Epoch 03/25 step 0060/0174 | loss=0.6821  acc=0.606
+  [Train] Epoch 03/25 step 0070/0174 | loss=0.6798  acc=0.607
+  [Train] Epoch 03/25 step 0080/0174 | loss=0.6805  acc=0.613
+  [Train] Epoch 03/25 step 0090/0174 | loss=0.6798  acc=0.610
+  [Train] Epoch 03/25 step 0100/0174 | loss=0.6796  acc=0.615
+  [Train] Epoch 03/25 step 0110/0174 | loss=0.6787  acc=0.622
+  [Train] Epoch 03/25 step 0120/0174 | loss=0.6781  acc=0.627
+  [Train] Epoch 03/25 step 0130/0174 | loss=0.6773  acc=0.635
+  [Train] Epoch 03/25 step 0140/0174 | loss=0.6763  acc=0.641
+  [Train] Epoch 03/25 step 0150/0174 | loss=0.6766  acc=0.642
+  [Train] Epoch 03/25 step 0160/0174 | loss=0.6778  acc=0.641
+  [Train] Epoch 03/25 step 0170/0174 | loss=0.6760  acc=0.649
+  [Train] Epoch 03/25 step 0174/0174 | loss=0.6763  acc=0.649
+  [  Val] Epoch 03/25 step 0010/0045 | loss=0.6250  acc=0.637
+  [  Val] Epoch 03/25 step 0020/0045 | loss=0.6739  acc=0.581
+  [  Val] Epoch 03/25 step 0030/0045 | loss=0.6581  acc=0.642
+  [  Val] Epoch 03/25 step 0040/0045 | loss=0.6582  acc=0.647
+  [  Val] Epoch 03/25 step 0045/0045 | loss=0.6648  acc=0.639
+  ✔  Epoch 03/25  [Phase 1]  train_loss=0.6763  train_acc=0.649  val_acc(slice)=0.639  val_acc(patient)=0.689  lr=1.73e-04
+  💾 Checkpoint → checkpoints/breastdcedl_vit_epoch03.pth
+
+  [Train] Epoch 04/25 step 0010/0174 | loss=0.6954  acc=0.650
+  [Train] Epoch 04/25 step 0020/0174 | loss=0.6805  acc=0.706
+  [Train] Epoch 04/25 step 0030/0174 | loss=0.6741  acc=0.704
+  [Train] Epoch 04/25 step 0040/0174 | loss=0.6760  acc=0.700
+  [Train] Epoch 04/25 step 0050/0174 | loss=0.6727  acc=0.695
+  [Train] Epoch 04/25 step 0060/0174 | loss=0.6739  acc=0.688
+  [Train] Epoch 04/25 step 0070/0174 | loss=0.6769  acc=0.684
+  [Train] Epoch 04/25 step 0080/0174 | loss=0.6721  acc=0.691
+  [Train] Epoch 04/25 step 0090/0174 | loss=0.6716  acc=0.696
+  [Train] Epoch 04/25 step 0100/0174 | loss=0.6754  acc=0.693
+  [Train] Epoch 04/25 step 0110/0174 | loss=0.6789  acc=0.689
+  [Train] Epoch 04/25 step 0120/0174 | loss=0.6796  acc=0.689
+  [Train] Epoch 04/25 step 0130/0174 | loss=0.6815  acc=0.685
+  [Train] Epoch 04/25 step 0140/0174 | loss=0.6841  acc=0.679
+  [Train] Epoch 04/25 step 0150/0174 | loss=0.6830  acc=0.680
+  [Train] Epoch 04/25 step 0160/0174 | loss=0.6822  acc=0.677
+  [Train] Epoch 04/25 step 0170/0174 | loss=0.6818  acc=0.676
+  [Train] Epoch 04/25 step 0174/0174 | loss=0.6819  acc=0.677
+  [  Val] Epoch 04/25 step 0010/0045 | loss=0.6438  acc=0.562
+  [  Val] Epoch 04/25 step 0020/0045 | loss=0.6888  acc=0.456
+  [  Val] Epoch 04/25 step 0030/0045 | loss=0.6744  acc=0.525
+  [  Val] Epoch 04/25 step 0040/0045 | loss=0.6726  acc=0.537
+  [  Val] Epoch 04/25 step 0045/0045 | loss=0.6778  acc=0.522
+  ✔  Epoch 04/25  [Phase 1]  train_loss=0.6819  train_acc=0.677  val_acc(slice)=0.522  val_acc(patient)=0.578  lr=4.87e-05
+  💾 Checkpoint → checkpoints/breastdcedl_vit_epoch04.pth
+
+  [Train] Epoch 05/25 step 0010/0174 | loss=0.7056  acc=0.600
+  [Train] Epoch 05/25 step 0020/0174 | loss=0.6782  acc=0.662
+  [Train] Epoch 05/25 step 0030/0174 | loss=0.6872  acc=0.629
+  [Train] Epoch 05/25 step 0040/0174 | loss=0.6736  acc=0.662
+  [Train] Epoch 05/25 step 0050/0174 | loss=0.6792  acc=0.655
+  [Train] Epoch 05/25 step 0060/0174 | loss=0.6770  acc=0.665
+  [Train] Epoch 05/25 step 0070/0174 | loss=0.6738  acc=0.670
+  [Train] Epoch 05/25 step 0080/0174 | loss=0.6744  acc=0.666
+  [Train] Epoch 05/25 step 0090/0174 | loss=0.6730  acc=0.665
+  [Train] Epoch 05/25 step 0100/0174 | loss=0.6732  acc=0.661
+  [Train] Epoch 05/25 step 0110/0174 | loss=0.6730  acc=0.664
+  [Train] Epoch 05/25 step 0120/0174 | loss=0.6730  acc=0.656
+  [Train] Epoch 05/25 step 0130/0174 | loss=0.6713  acc=0.657
+  [Train] Epoch 05/25 step 0140/0174 | loss=0.6710  acc=0.654
+  [Train] Epoch 05/25 step 0150/0174 | loss=0.6730  acc=0.648
+  [Train] Epoch 05/25 step 0160/0174 | loss=0.6755  acc=0.642
+  [Train] Epoch 05/25 step 0170/0174 | loss=0.6752  acc=0.643
+  [Train] Epoch 05/25 step 0174/0174 | loss=0.6751  acc=0.644
+  [  Val] Epoch 05/25 step 0010/0045 | loss=0.6444  acc=0.550
+  [  Val] Epoch 05/25 step 0020/0045 | loss=0.6897  acc=0.450
+  [  Val] Epoch 05/25 step 0030/0045 | loss=0.6752  acc=0.521
+  [  Val] Epoch 05/25 step 0040/0045 | loss=0.6733  acc=0.534
+  [  Val] Epoch 05/25 step 0045/0045 | loss=0.6785  acc=0.519
+  ✔  Epoch 05/25  [Phase 1]  train_loss=0.6751  train_acc=0.644  val_acc(slice)=0.519  val_acc(patient)=0.578  lr=1.00e-06
+  💾 Checkpoint → checkpoints/breastdcedl_vit_epoch05.pth
+
+
+── Phase 2: full fine-tune with LLRD  (backbone_lr=8.0e-06, head_lr=5.0e-04, llrd=0.85) ──
+[model] Unfrozen all params. Trainable: 85,800,194  (backbone_lr=8.0e-06, head_lr=5.0e-04, llrd=0.85)
+  [Train] Epoch 06/25 step 0010/0174 | loss=0.6605  acc=0.688
+  [Train] Epoch 06/25 step 0020/0174 | loss=0.6733  acc=0.650
+  [Train] Epoch 06/25 step 0030/0174 | loss=0.6816  acc=0.633
+  [Train] Epoch 06/25 step 0040/0174 | loss=0.6779  acc=0.653
+  [Train] Epoch 06/25 step 0050/0174 | loss=0.6812  acc=0.647
+  [Train] Epoch 06/25 step 0060/0174 | loss=0.6831  acc=0.644
+  [Train] Epoch 06/25 step 0070/0174 | loss=0.6774  acc=0.645
+  [Train] Epoch 06/25 step 0080/0174 | loss=0.6730  acc=0.647
+  [Train] Epoch 06/25 step 0090/0174 | loss=0.6730  acc=0.646
+  [Train] Epoch 06/25 step 0100/0174 | loss=0.6725  acc=0.651
+  [Train] Epoch 06/25 step 0110/0174 | loss=0.6728  acc=0.650
+  [Train] Epoch 06/25 step 0120/0174 | loss=0.6736  acc=0.650
+  [Train] Epoch 06/25 step 0130/0174 | loss=0.6738  acc=0.651
+  [Train] Epoch 06/25 step 0140/0174 | loss=0.6741  acc=0.656
+  [Train] Epoch 06/25 step 0150/0174 | loss=0.6737  acc=0.657
+  [Train] Epoch 06/25 step 0160/0174 | loss=0.6745  acc=0.655
+  [Train] Epoch 06/25 step 0170/0174 | loss=0.6746  acc=0.659
+  [Train] Epoch 06/25 step 0174/0174 | loss=0.6759  acc=0.658
+  [  Val] Epoch 06/25 step 0010/0045 | loss=0.6319  acc=0.600
+  [  Val] Epoch 06/25 step 0020/0045 | loss=0.6818  acc=0.519
+  [  Val] Epoch 06/25 step 0030/0045 | loss=0.6650  acc=0.579
+  [  Val] Epoch 06/25 step 0040/0045 | loss=0.6630  acc=0.588
+  [  Val] Epoch 06/25 step 0045/0045 | loss=0.6695  acc=0.572
+  ✔  Epoch 06/25  [Phase 2]  train_loss=0.6759  train_acc=0.658  val_acc(slice)=0.572  val_acc(patient)=0.622  lr=5.00e-04
+  (no improvement, patience 1/8)
+  💾 Checkpoint → checkpoints/breastdcedl_vit_epoch06.pth
+
+  [Train] Epoch 07/25 step 0010/0174 | loss=0.6973  acc=0.588
+  [Train] Epoch 07/25 step 0020/0174 | loss=0.6936  acc=0.600
+  [Train] Epoch 07/25 step 0030/0174 | loss=0.6859  acc=0.588
+  [Train] Epoch 07/25 step 0040/0174 | loss=0.6806  acc=0.600
+  [Train] Epoch 07/25 step 0050/0174 | loss=0.6750  acc=0.625
+  [Train] Epoch 07/25 step 0060/0174 | loss=0.6724  acc=0.637
+  [Train] Epoch 07/25 step 0070/0174 | loss=0.6804  acc=0.643
+  [Train] Epoch 07/25 step 0080/0174 | loss=0.6826  acc=0.650
+  [Train] Epoch 07/25 step 0090/0174 | loss=0.6896  acc=0.646
+  [Train] Epoch 07/25 step 0100/0174 | loss=0.6887  acc=0.647
+  [Train] Epoch 07/25 step 0110/0174 | loss=0.6878  acc=0.650
+  [Train] Epoch 07/25 step 0120/0174 | loss=0.6867  acc=0.651
+  [Train] Epoch 07/25 step 0130/0174 | loss=0.6860  acc=0.647
+  [Train] Epoch 07/25 step 0140/0174 | loss=0.6839  acc=0.642
+  [Train] Epoch 07/25 step 0150/0174 | loss=0.6841  acc=0.635
+  [Train] Epoch 07/25 step 0160/0174 | loss=0.6821  acc=0.633
+  [Train] Epoch 07/25 step 0170/0174 | loss=0.6819  acc=0.626
+  [Train] Epoch 07/25 step 0174/0174 | loss=0.6813  acc=0.627
+  [  Val] Epoch 07/25 step 0010/0045 | loss=0.6700  acc=0.537
+  [  Val] Epoch 07/25 step 0020/0045 | loss=0.7107  acc=0.438
+  [  Val] Epoch 07/25 step 0030/0045 | loss=0.6978  acc=0.479
+  [  Val] Epoch 07/25 step 0040/0045 | loss=0.6933  acc=0.503
+  [  Val] Epoch 07/25 step 0045/0045 | loss=0.6979  acc=0.492
+  ✔  Epoch 07/25  [Phase 2]  train_loss=0.6813  train_acc=0.627  val_acc(slice)=0.492  val_acc(patient)=0.511  lr=4.97e-04
+  (no improvement, patience 2/8)
+  💾 Checkpoint → checkpoints/breastdcedl_vit_epoch07.pth
+
+  [Train] Epoch 08/25 step 0010/0174 | loss=0.6492  acc=0.700
+  [Train] Epoch 08/25 step 0020/0174 | loss=0.6622  acc=0.675
+  [Train] Epoch 08/25 step 0030/0174 | loss=0.6526  acc=0.692
+  [Train] Epoch 08/25 step 0040/0174 | loss=0.6620  acc=0.672
+  [Train] Epoch 08/25 step 0050/0174 | loss=0.6649  acc=0.677
+  [Train] Epoch 08/25 step 0060/0174 | loss=0.6676  acc=0.673
+  [Train] Epoch 08/25 step 0070/0174 | loss=0.6585  acc=0.682
+  [Train] Epoch 08/25 step 0080/0174 | loss=0.6659  acc=0.678
+  [Train] Epoch 08/25 step 0090/0174 | loss=0.6635  acc=0.678
+  [Train] Epoch 08/25 step 0100/0174 | loss=0.6645  acc=0.670
+  [Train] Epoch 08/25 step 0110/0174 | loss=0.6663  acc=0.662
+  [Train] Epoch 08/25 step 0120/0174 | loss=0.6714  acc=0.649
+  [Train] Epoch 08/25 step 0130/0174 | loss=0.6721  acc=0.642
+  [Train] Epoch 08/25 step 0140/0174 | loss=0.6717  acc=0.645
+  [Train] Epoch 08/25 step 0150/0174 | loss=0.6713  acc=0.643
+  [Train] Epoch 08/25 step 0160/0174 | loss=0.6720  acc=0.644
+  [Train] Epoch 08/25 step 0170/0174 | loss=0.6723  acc=0.644
+  [Train] Epoch 08/25 step 0174/0174 | loss=0.6711  acc=0.647
+  [  Val] Epoch 08/25 step 0010/0045 | loss=0.6098  acc=0.675
+  [  Val] Epoch 08/25 step 0020/0045 | loss=0.6690  acc=0.637
+  [  Val] Epoch 08/25 step 0030/0045 | loss=0.6482  acc=0.688
+  [  Val] Epoch 08/25 step 0040/0045 | loss=0.6487  acc=0.688
+  [  Val] Epoch 08/25 step 0045/0045 | loss=0.6590  acc=0.678
+  ✔  Epoch 08/25  [Phase 2]  train_loss=0.6711  train_acc=0.647  val_acc(slice)=0.678  val_acc(patient)=0.689  lr=4.86e-04
+  (no improvement, patience 3/8)
+  💾 Checkpoint → checkpoints/breastdcedl_vit_epoch08.pth
+  
