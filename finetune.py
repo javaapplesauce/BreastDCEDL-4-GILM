@@ -28,6 +28,7 @@ from PIL import Image
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
@@ -35,7 +36,8 @@ from torch.utils.data import Dataset, DataLoader
 
 from torchvision import transforms
 
-from transformers import ViTForImageClassification
+from transformers import ViTForImageClassification, Dinov2ForImageClassification
+from sklearn.metrics import roc_auc_score
 
 sys.path.append(os.path.abspath("utils"))
 import data_utils as ds
@@ -53,29 +55,46 @@ def load_cfg(cfg_path: str = _CFG_FILE) -> configparser.ConfigParser:
     return cfg
 
 
+# Channels are Z-scored then encoded to uint8 via: uint8 = (clip(z,-3,3) + 3) / 6 * 255
+# ToTensor() divides by 255 → tensor ∈ [0,1].  Normalize(0.5, 1/6) recovers Z-score range.
+_ZSCORE_MEAN = [0.5, 0.5, 0.5]
+_ZSCORE_STD  = [1/6, 1/6, 1/6]
+
 TRAIN_TRANSFORMS = transforms.Compose([
     transforms.RandomHorizontalFlip(),
     transforms.RandomVerticalFlip(),
     transforms.RandomRotation(15),
     transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
-    transforms.ColorJitter(brightness=0.2, contrast=0.2),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225]),
+    transforms.Normalize(mean=_ZSCORE_MEAN, std=_ZSCORE_STD),
     transforms.RandomErasing(p=0.25, scale=(0.02, 0.15)),
 ])
 
 VAL_TRANSFORMS = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225]),
+    transforms.Normalize(mean=_ZSCORE_MEAN, std=_ZSCORE_STD),
 ])
 
 
-def _to_rgb(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> np.ndarray:
-    """Stack three 2-D slices into a uint8 RGB image using ds.minmax."""
-    rgb = ds.minmax(np.stack([a, b, c], axis=2))
-    return (rgb * 255).astype(np.uint8)
+def _to_float_channels(pre: np.ndarray, post: np.ndarray) -> np.ndarray:
+    """
+    Build a (H, W, 3) uint8 image from clinically-meaningful DCE channels:
+      ch0 = pre-contrast
+      ch1 = first post-contrast
+      ch2 = subtraction (post - pre)  — primary enhancement signal
+
+    Each channel is Z-score normalised per-slice, clipped to [-3, 3], then
+    encoded to uint8 so standard PIL spatial transforms can be applied.
+    The paired Normalize(mean=0.5, std=1/6) transform recovers the Z-score range.
+    """
+    diff = post.astype(np.float32) - pre.astype(np.float32)
+    channels = np.stack([pre.astype(np.float32), post.astype(np.float32), diff], axis=2)
+    for c in range(3):
+        mu  = channels[:, :, c].mean()
+        sig = channels[:, :, c].std() + 1e-6
+        channels[:, :, c] = (channels[:, :, c] - mu) / sig
+    channels = np.clip(channels, -3.0, 3.0)
+    return ((channels + 3.0) / 6.0 * 255).astype(np.uint8)
 
 
 def _roi_centre_from_row(row: pd.Series, vol_shape: tuple) -> tuple[int, int]:
@@ -188,8 +207,8 @@ class BreastDCEDataset(Dataset):
             # ROI centre via data_utils helper
             cx, cy = _roi_centre_from_row(row, acqs[0].shape)
 
-            # Build RGB image and crop
-            rgb = _to_rgb(acqs[0][:, :, k], acqs[1][:, :, k], acqs[2][:, :, k])
+            # Build clinical DCE channels (pre, post, subtraction) with Z-score encoding
+            rgb = _to_float_channels(acqs[0][:, :, k], acqs[1][:, :, k])
             img = Image.fromarray(rgb, mode="RGB")
 
             # Crop centred on tumour ROI
@@ -215,6 +234,25 @@ class BreastDCEDataset(Dataset):
         return torch.zeros(3, self.crop_size, self.crop_size), label
 
 
+# ── Loss ──────────────────────────────────────────────────────────────────────
+
+class FocalLoss(nn.Module):
+    """
+    Focal Loss: FL(p_t) = -alpha_t * (1 - p_t)^gamma * log(p_t)
+    Focuses training on hard, misclassified examples; down-weights easy ones.
+    Replaces weighted cross-entropy for better handling of pCR class imbalance.
+    """
+    def __init__(self, gamma: float = 2.0, weight: torch.Tensor = None):
+        super().__init__()
+        self.gamma  = gamma
+        self.weight = weight
+
+    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        ce  = F.cross_entropy(logits, labels, weight=self.weight, reduction="none")
+        p_t = torch.exp(-ce)
+        return (((1 - p_t) ** self.gamma) * ce).mean()
+
+
 # ── Model helpers ─────────────────────────────────────────────────────────────
 
 def build_model(hf_checkpoint: str, weights_path: str, num_classes: int,
@@ -224,7 +262,9 @@ def build_model(hf_checkpoint: str, weights_path: str, num_classes: int,
     inject dropout before the classifier head, and optionally freeze encoder.
     """
     print(f"[model] Loading architecture from '{hf_checkpoint}' …")
-    model = ViTForImageClassification.from_pretrained(
+    ModelClass = Dinov2ForImageClassification if "dinov2" in hf_checkpoint.lower() \
+                 else ViTForImageClassification
+    model = ModelClass.from_pretrained(
         hf_checkpoint,
         num_labels=num_classes,
         ignore_mismatched_sizes=True,
@@ -409,8 +449,14 @@ def eval_patient_level(
     pooled_logits   = logits_3d.mean(dim=1)      # (n_patients, 2)
     patient_labels  = labels_2d[:, 0]             # same label for all slices
 
-    preds = pooled_logits.argmax(dim=1)
-    return (preds == patient_labels).float().mean().item()
+    preds     = pooled_logits.argmax(dim=1)
+    acc       = (preds == patient_labels).float().mean().item()
+    probs_pos = torch.softmax(pooled_logits, dim=1)[:, 1].numpy()
+    try:
+        auc = float(roc_auc_score(patient_labels.numpy(), probs_pos))
+    except ValueError:
+        auc = 0.5
+    return acc, auc
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -528,11 +574,11 @@ def main():
         dtype=torch.float32,
     ).to(device)
     class_weights /= class_weights.sum()
-    criterion = nn.CrossEntropyLoss(weight=class_weights)
+    criterion = FocalLoss(gamma=2.0, weight=class_weights)
 
     scaler = GradScaler()
 
-    best_val_acc  = args.resume_best_acc
+    best_val_auc  = args.resume_best_acc   # arg reused: now stores best AUC
     best_val_loss = float("inf")
     epochs_no_imp = args.resume_patience
     phase2_start  = args.freeze_epochs + 1
@@ -542,7 +588,7 @@ def main():
         print(f"[resume] Loading checkpoint from '{ckpt_path}' (epoch {args.resume}) …")
         inner = model.module if isinstance(model, nn.DataParallel) else model
         inner.load_state_dict(torch.load(ckpt_path, map_location=device))
-        print(f"[resume] Restored best_val_acc={best_val_acc:.3f}, patience={epochs_no_imp}/{args.patience}")
+        print(f"[resume] Restored best_val_auc={best_val_auc:.3f}, patience={epochs_no_imp}/{args.patience}")
 
     print("\n" + "=" * 60)
     print(f"Starting fine-tuning  ({args.freeze_epochs} freeze + "
@@ -567,23 +613,23 @@ def main():
                 device, args.accum, epoch, args.epochs, is_train=False)
             scheduler_p1.step()
 
-            # Patient-level val accuracy
-            pt_acc = eval_patient_level(model, val_df, label_col, crop_size, n_slices,
-                                        args.batch_size, num_workers, device)
+            # Patient-level val accuracy + AUC
+            pt_acc, pt_auc = eval_patient_level(model, val_df, label_col, crop_size, n_slices,
+                                                args.batch_size, num_workers, device)
 
             print(f"  ✔  Epoch {epoch:02d}/{args.epochs}  [Phase 1]  "
                   f"train_loss={train_loss:.4f}  train_acc={train_acc:.3f}  "
                   f"val_acc(slice)={val_acc:.3f}  val_acc(patient)={pt_acc:.3f}  "
-                  f"lr={scheduler_p1.get_last_lr()[0]:.2e}")
+                  f"val_auc={pt_auc:.3f}  lr={scheduler_p1.get_last_lr()[0]:.2e}")
 
-            if pt_acc > best_val_acc:
-                best_val_acc  = pt_acc
+            if pt_auc > best_val_auc:
+                best_val_auc  = pt_auc
                 best_val_loss = val_loss
                 epochs_no_imp = 0
                 best = os.path.join(args.checkpoint_dir, "breastdcedl_vit_best.pth")
                 inner = model.module if isinstance(model, nn.DataParallel) else model
                 torch.save(inner.state_dict(), best)
-                print(f"  ⭐ New best patient-level val acc: {pt_acc:.3f} → {best}")
+                print(f"  ⭐ New best val AUC: {pt_auc:.3f} → {best}")
             else:
                 epochs_no_imp += 1
 
@@ -631,25 +677,25 @@ def main():
                 device, args.accum, epoch, args.epochs, is_train=False)
             scheduler_p2.step()
 
-            # Patient-level val accuracy
-            pt_acc = eval_patient_level(model, val_df, label_col, crop_size, n_slices,
-                                        args.batch_size, num_workers, device)
+            # Patient-level val accuracy + AUC
+            pt_acc, pt_auc = eval_patient_level(model, val_df, label_col, crop_size, n_slices,
+                                                args.batch_size, num_workers, device)
 
             # Report the LR of the head param group (highest LR)
             current_lr = optimizer_p2.param_groups[0]["lr"]
             print(f"  ✔  Epoch {epoch:02d}/{args.epochs}  [Phase 2]  "
                   f"train_loss={train_loss:.4f}  train_acc={train_acc:.3f}  "
                   f"val_acc(slice)={val_acc:.3f}  val_acc(patient)={pt_acc:.3f}  "
-                  f"lr={current_lr:.2e}")
+                  f"val_auc={pt_auc:.3f}  lr={current_lr:.2e}")
 
-            if pt_acc >= best_val_acc:
-                best_val_acc  = pt_acc
+            if pt_auc >= best_val_auc:
+                best_val_auc  = pt_auc
                 best_val_loss = val_loss
                 epochs_no_imp = 0
                 best = os.path.join(args.checkpoint_dir, "breastdcedl_vit_best.pth")
                 inner = model.module if isinstance(model, nn.DataParallel) else model
                 torch.save(inner.state_dict(), best)
-                print(f"  ⭐ New best patient-level val acc: {pt_acc:.3f} → {best}")
+                print(f"  ⭐ New best val AUC: {pt_auc:.3f} → {best}")
             else:
                 epochs_no_imp += 1
                 print(f"  (no improvement, patience {epochs_no_imp}/{args.patience})")
@@ -660,8 +706,8 @@ def main():
             print(f"  💾 Checkpoint → {ckpt}\n")
 
     print("Fine-tuning complete.")
-    print(f"Best patient-level val acc : {best_val_acc:.3f}")
-    print(f"Best val loss              : {best_val_loss:.4f}  (at best-acc epoch)")
+    print(f"Best patient-level val AUC : {best_val_auc:.3f}")
+    print(f"Best val loss              : {best_val_loss:.4f}  (at best-AUC epoch)")
     print(f"Checkpoints saved in       : {args.checkpoint_dir}/")
 
 
