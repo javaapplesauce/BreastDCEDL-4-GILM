@@ -1,0 +1,64 @@
+data:
+  # Paths to BreastDCEDL cohort directories (NIfTI + masks)
+  nifti:
+    spy1: BreastDCEDL_spy1/spt1_dce
+    spy2: ISPY2/data_samples/dce
+    duke: BreastDCEDL_duke/duke_dce
+  masks:
+    spy1: BreastDCEDL_spy1/spy1_mask
+    spy2: ISPY2/data_samples/mask
+    duke: BreastDCEDL_duke/duke_mask
+  metadata:
+    spy1: BreastDCEDL_spy1/BreastDCEDL_spy1_metadata.csv
+    spy2: ISPY2/ISPY2_metadata.csv
+    duke: BreastDCEDL_duke/BrestDCEDL_duke_cropped_metadata.csv
+  combined_metadata: BreastDCEDL_metadata.csv
+  label_col: pCR
+  crop_size: 224
+  n_slices: 8
+
+  # SER timepoint indices per cohort (paper Section 2.5)
+  # I-SPY: timepoints 0, 2, min(last_index, 6)
+  # Duke:  timepoints 0, 1, final acquisition
+  ser_timepoints:
+    spy1: [0, 2, -1]
+    spy2: [0, 2, -1]
+    duke: [0, 1, -1]
+
+model:
+  backbone: google/vit-base-patch16-224-in21k
+  num_classes: 2
+  dropout: 0.3
+  use_clinical: false
+  clinical_features: [tumor_volume, hr_status, her2_status, age]
+  clinical_dim: 4
+
+training:
+  num_epochs: 30
+  freeze_epochs: 5
+  batch_size: 16
+  accum_steps: 2
+  backbone_lr: 5e-6
+  head_lr: 5e-4
+  llrd: 0.85
+  weight_decay: 0.01
+  patience: 10
+  num_workers: 4
+  seed: 42
+
+  # Augmentation
+  augmentation:
+    horizontal_flip: true
+    vertical_flip: true
+    rotation: 15
+    translate: [0.1, 0.1]
+    scale: [0.9, 1.1]
+    random_erasing: 0.25
+    color_jitter: null
+
+evaluation:
+  # Subtype stratification for reporting
+  subtypes:
+    HR+/HER2-: {hr_status: 1, her2_status: 0}
+    HER2+: {her2_status: 1}
+    Triple Negative: {hr_status: 0, her2_status: 0}
