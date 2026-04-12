@@ -51,3 +51,10 @@ checkpoints/
 evaluate.py
 
 CLAUDE.md
+
+# Training outputs
+checkpoints/
+results/
+
+# Data directories (downloaded separately)
+ISPY2/
