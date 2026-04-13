@@ -9,3 +9,4 @@ Pillow>=10.0
 pyyaml>=6.0
 matplotlib>=3.7
 seaborn>=0.12
+wandb>=0.16

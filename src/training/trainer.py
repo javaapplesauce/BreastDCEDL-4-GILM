@@ -21,6 +21,12 @@ from torch.utils.data import DataLoader
 from src.models.vit import BreastDCEViT, build_llrd_param_groups
 from src.evaluation.metrics import patient_level_eval
 
+try:
+    import wandb
+    _WANDB_AVAILABLE = True
+except ImportError:
+    _WANDB_AVAILABLE = False
+
 
 def run_epoch(
     model: BreastDCEViT,
@@ -98,6 +104,12 @@ class Trainer:
 
         self.scaler = GradScaler()
         self.history = []
+
+        # W&B
+        wcfg = cfg.get("wandb", {})
+        self.use_wandb = (wcfg.get("enabled", False)
+                          and _WANDB_AVAILABLE
+                          and wandb.run is not None)
 
     def train(self, criterion):
         num_epochs = self.tcfg["num_epochs"]
@@ -183,6 +195,13 @@ class Trainer:
             )
 
         self._save_history()
+        if self.use_wandb:
+            best_path = os.path.join(self.checkpoint_dir, "best.pth")
+            if os.path.isfile(best_path):
+                artifact = wandb.Artifact("best-model", type="model",
+                                          metadata={"best_auc": best_auc})
+                artifact.add_file(best_path)
+                wandb.log_artifact(artifact)
         print(f"\nTraining complete. Best val AUC: {best_auc:.4f}")
         return best_auc
 
@@ -204,6 +223,22 @@ class Trainer:
             f"spec={metrics['specificity']:.3f}"
         )
 
+        if self.use_wandb:
+            wandb.log({
+                "epoch": epoch,
+                "phase": phase,
+                "train/loss": tr_loss,
+                "train/acc": tr_acc,
+                "val/loss": vl_loss,
+                "val/acc_slice": vl_acc,
+                "val/acc_patient": metrics["accuracy"],
+                "val/auc": metrics["auc"],
+                "val/sensitivity": metrics["sensitivity"],
+                "val/specificity": metrics["specificity"],
+                "val/precision": metrics["precision"],
+                "val/npv": metrics["npv"],
+            }, step=epoch)
+
     def _checkpoint(self, epoch, metrics, best_auc, epochs_no_imp):
         if metrics["auc"] > best_auc:
             best_auc = metrics["auc"]
@@ -211,6 +246,9 @@ class Trainer:
             path = os.path.join(self.checkpoint_dir, "best.pth")
             torch.save(self.model.state_dict(), path)
             print(f"  -> New best AUC: {best_auc:.4f} saved to {path}")
+            if self.use_wandb:
+                wandb.run.summary["best_auc"] = best_auc
+                wandb.run.summary["best_epoch"] = epoch
         else:
             epochs_no_imp += 1
 
