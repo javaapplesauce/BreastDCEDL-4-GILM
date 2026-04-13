@@ -33,11 +33,36 @@ from src.models.vit import BreastDCEViT
 from src.models.losses import FocalLoss, build_class_weights
 from src.training.trainer import Trainer
 
+try:
+    import wandb
+except ImportError:
+    wandb = None
+
+
+def _init_wandb(cfg: dict):
+    wcfg = cfg.get("wandb", {})
+    if not wcfg.get("enabled", False) or wandb is None:
+        return
+    wandb.init(
+        project=wcfg.get("project", "breastdcedl-vit"),
+        entity=wcfg.get("entity"),
+        tags=wcfg.get("tags", []),
+        config={
+            "model": cfg["model"],
+            "training": cfg["training"],
+            "data": {k: v for k, v in cfg["data"].items()
+                     if k in ("label_col", "crop_size", "n_slices")},
+        },
+        reinit=True,
+    )
+
 
 def train_from_config(cfg: dict) -> float:
     seed = cfg["training"].get("seed", 42)
     torch.manual_seed(seed)
     np.random.seed(seed)
+
+    _init_wandb(cfg)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if torch.cuda.is_available():
@@ -165,6 +190,8 @@ def train_from_config(cfg: dict) -> float:
     # Train
     trainer = Trainer(model, train_loader, val_loader, val_df, cfg, device)
     best_auc = trainer.train(criterion)
+    if wandb is not None and wandb.run is not None:
+        wandb.finish()
     return best_auc
 
 

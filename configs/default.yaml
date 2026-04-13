@@ -56,6 +56,23 @@ training:
     random_erasing: 0.25
     color_jitter: null
 
+wandb:
+  enabled: true
+  project: breastdcedl-vit
+  entity: null
+  tags: [vit, pcr, dce-mri]
+
+zenodo:
+  record_id: 18114231
+  api_url: https://zenodo.org/api/records/18114231
+  files:
+    ispy2: BreastDCEDL_ISPY2_min_crop.tar.gz
+    duke: BreastDCEDL_DUKE_min_crop.tar.gz
+    ispy1: BreastDCEDL_ISPY1_min_crop.tar.gz
+    demo: BreastDCEDL_demo_data.tar.gz
+    models: BreastDCEDL_models.tar.gz
+    metadata: BreastDCEDL_metadata_min_crop.csv
+
 evaluation:
   # Subtype stratification for reporting
   subtypes:
