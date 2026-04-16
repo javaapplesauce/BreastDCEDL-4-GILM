@@ -21,6 +21,7 @@ class BreastDCEViT(nn.Module):
         dropout: float = 0.3,
         use_clinical: bool = False,
         clinical_dim: int = 0,
+        pretrained_weights: str | None = None,
     ):
         super().__init__()
         self.use_clinical = use_clinical
@@ -41,6 +42,35 @@ class BreastDCEViT(nn.Module):
             nn.Dropout(p=dropout),
             nn.Linear(head_input, num_classes),
         )
+
+        if pretrained_weights:
+            self.load_pretrained(pretrained_weights)
+
+    def load_pretrained(self, path: str):
+        """Load pretrained weights (e.g. paper's checkpoint from Zenodo).
+        Accepts either an already-wrapped state_dict (has `encoder.`/`head.`
+        keys) or a bare HF ViTForImageClassification state_dict. Skips
+        classifier-head mismatches gracefully."""
+        import os
+        if not os.path.isfile(path):
+            print(f"  [pretrained] Not found: {path}")
+            return
+        sd = torch.load(path, map_location="cpu")
+        if isinstance(sd, dict) and "state_dict" in sd:
+            sd = sd["state_dict"]
+
+        has_wrapper = any(k.startswith("encoder.") for k in sd)
+        if has_wrapper:
+            target_sd = sd
+        else:
+            # Remap bare HF state_dict -> self.encoder.*
+            target_sd = {}
+            for k, v in sd.items():
+                if k.startswith("classifier."):
+                    continue  # skip head weights (shape may differ)
+                target_sd[f"encoder.{k}"] = v
+        missing, unexpected = self.load_state_dict(target_sd, strict=False)
+        print(f"  [pretrained] loaded {path}  missing={len(missing)} unexpected={len(unexpected)}")
 
     def forward(self, pixel_values: torch.Tensor, clinical: torch.Tensor = None):
         features = self.encoder(pixel_values).logits  # (B, hidden)

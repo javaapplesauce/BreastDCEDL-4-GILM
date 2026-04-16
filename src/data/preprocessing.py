@@ -105,18 +105,35 @@ def fuse_rgb_slice(
     return np.stack([r, g, b], axis=-1)
 
 
-def select_timepoints(acqs: list[np.ndarray], cohort: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def select_timepoints(
+    acqs: list[np.ndarray],
+    cohort: str,
+    idx_pre: int | None = None,
+    idx_early: int | None = None,
+    idx_late: int | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Select the 3 acquisitions for RGB fusion per the paper's convention:
-      I-SPY trials: SER timepoints 0, 2, min(last_index, 6)
-      Duke:         timepoints 0, 1, final acquisition
+    Select the 3 acquisitions for RGB fusion.
+
+    When explicit indices are provided (from the MinCrop metadata columns
+    `pre`, `post_early`, `post_late`), use them directly — each patient has
+    per-scan clinically-curated timepoints. Otherwise fall back to the
+    paper's cohort-level defaults:
+      I-SPY: 0, 2, min(last_index, 6)
+      Duke:  0, 1, final acquisition
     """
     n = len(acqs)
+
+    def _pick(i):
+        return acqs[max(0, min(int(i), n - 1))]
+
+    if idx_pre is not None and idx_early is not None and idx_late is not None:
+        return _pick(idx_pre), _pick(idx_early), _pick(idx_late)
+
     if cohort in ("spy1", "spy2"):
         pre = acqs[0]
         early = acqs[min(2, n - 1)]
-        late_idx = min(n - 1, 6)
-        late = acqs[late_idx]
+        late = acqs[min(n - 1, 6)]
     else:
         pre = acqs[0]
         early = acqs[min(1, n - 1)]

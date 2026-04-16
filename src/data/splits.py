@@ -33,16 +33,23 @@ def load_and_split(
         return train_df, val_df, test_df
 
     if "test" in df.columns:
+        # MinCrop metadata encodes: 0=train, 1=val, 2=test
         train_df = df[df["test"] == 0].reset_index(drop=True)
-        holdout = df[df["test"] != 0].reset_index(drop=True)
-        if len(holdout) > 20:
-            val_df, test_df = train_test_split(
-                holdout, test_size=0.5, random_state=seed,
-                stratify=holdout[label_col],
-            )
-        else:
-            val_df = holdout
-            test_df = holdout.copy()
+        val_df = df[df["test"] == 1].reset_index(drop=True)
+        test_df = df[df["test"] == 2].reset_index(drop=True)
+
+        # Fall back to sub-splitting if the CSV only uses 0/1 (old convention)
+        if len(test_df) == 0:
+            holdout = df[df["test"] == 1].reset_index(drop=True)
+            if len(holdout) > 20:
+                val_df, test_df = train_test_split(
+                    holdout, test_size=0.5, random_state=seed,
+                    stratify=holdout[label_col],
+                )
+            else:
+                val_df = holdout
+                test_df = holdout.copy()
+
         return (
             train_df,
             val_df.reset_index(drop=True),

@@ -130,7 +130,16 @@ class BreastDCEDataset(Dataset):
                 return self._blank(label, row_idx)
 
             cohort = _cohort_from_pid(pid)
-            pre, early, late = select_timepoints(acqs, cohort)
+            idx_pre = row.get("pre") if "pre" in row.index else None
+            idx_early = row.get("post_early") if "post_early" in row.index else None
+            idx_late = row.get("post_late") if "post_late" in row.index else None
+            if pd.isna(idx_pre): idx_pre = None
+            if pd.isna(idx_early): idx_early = None
+            if pd.isna(idx_late): idx_late = None
+            pre, early, late = select_timepoints(
+                acqs, cohort,
+                idx_pre=idx_pre, idx_early=idx_early, idx_late=idx_late,
+            )
             vol_depth = pre.shape[2]
 
             f, l = _z_range(row, vol_depth)

@@ -110,6 +110,66 @@ def evaluate_by_subtype(
     return pd.DataFrame(results)
 
 
+def predict_with_tta(
+    model,
+    loader,
+    device,
+    n_slices: int,
+    use_clinical: bool = False,
+    tta: bool = True,
+):
+    """
+    Run inference with optional test-time augmentation (horizontal + vertical flips),
+    average logits across augmentations and across n_slices per patient.
+    Returns (patient_labels, probs, preds) numpy arrays.
+    """
+    import torch
+    from torch.cuda.amp import autocast
+
+    model.eval()
+    views = [lambda x: x]
+    if tta:
+        views.extend([
+            lambda x: torch.flip(x, dims=[-1]),
+            lambda x: torch.flip(x, dims=[-2]),
+            lambda x: torch.flip(x, dims=[-1, -2]),
+        ])
+
+    all_logits = []
+    all_labels = []
+    with torch.no_grad():
+        for batch in loader:
+            if use_clinical:
+                images, labels, clinical = batch
+                clinical = clinical.to(device, non_blocking=True)
+            else:
+                images, labels = batch
+                clinical = None
+            images = images.to(device, non_blocking=True)
+            logits_sum = None
+            for v in views:
+                with autocast():
+                    out = model(v(images), clinical) if use_clinical \
+                          else model(v(images))
+                out = out.float()
+                logits_sum = out if logits_sum is None else logits_sum + out
+            all_logits.append((logits_sum / len(views)).cpu())
+            all_labels.append(labels)
+
+    all_logits = torch.cat(all_logits)
+    all_labels = torch.cat(all_labels)
+
+    n_total = all_logits.shape[0]
+    n_patients = n_total // n_slices
+    logits_3d = all_logits[:n_patients * n_slices].view(n_patients, n_slices, -1)
+    labels_2d = all_labels[:n_patients * n_slices].view(n_patients, n_slices)
+    pooled = logits_3d.mean(dim=1)
+    patient_labels = labels_2d[:, 0].numpy()
+    probs = torch.softmax(pooled, dim=1)[:, 1].numpy()
+    preds = pooled.argmax(dim=1).numpy()
+    return patient_labels, probs, preds
+
+
 def plot_roc(y_true, y_prob, title="ROC Curve", save_path=None):
     fpr, tpr, _ = roc_curve(y_true, y_prob)
     auc_val = roc_auc_score(y_true, y_prob)

@@ -30,7 +30,7 @@ model:
   num_classes: 2
   dropout: 0.3
   use_clinical: false
-  clinical_features: [tumor_volume, hr_status, her2_status, age]
+  clinical_features: [tum_vol, age, HR, HER2]
   clinical_dim: 4
 
 training:
@@ -74,8 +74,10 @@ zenodo:
     metadata: BreastDCEDL_metadata_min_crop.csv
 
 evaluation:
-  # Subtype stratification for reporting
+  # Subtype stratification for reporting.
+  # Column names match the MinCrop metadata (HRposHER2neg / HER2pos / TripleNeg,
+  # each encoded 0/1). The paper's headline AUC 0.94 is on HR+/HER2-.
   subtypes:
-    HR+/HER2-: {hr_status: 1, her2_status: 0}
-    HER2+: {her2_status: 1}
-    Triple Negative: {hr_status: 0, her2_status: 0}
+    HR+/HER2-: {HRposHER2neg: 1}
+    HER2+: {HER2pos: 1}
+    Triple Negative: {TripleNeg: 1}
