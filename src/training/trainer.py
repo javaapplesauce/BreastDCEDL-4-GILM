@@ -316,20 +316,33 @@ class Trainer:
             "epochs_no_imp": epochs_no_imp,
             "history": self.history,
             "amp_dtype": str(self.amp_dtype),
+            "backbone": self.cfg["model"]["backbone"],
         }, path)
 
     def _maybe_load_resume(self):
         """Detect and load a resume checkpoint pointed at by cfg['resume'].
-        Returns None if no resume; dict with mode='full'|'weights_only' otherwise."""
+        Returns None if no resume; dict with mode='full'|'weights_only' otherwise.
+        Aborts cleanly on backbone or shape mismatch — caller proceeds from scratch."""
         path = self.cfg.get("resume")
         if not path or not os.path.isfile(path):
             return None
 
         print(f"\n[resume] loading from {path}")
         blob = torch.load(path, map_location=self.device, weights_only=False)
+        cfg_backbone = self.cfg["model"]["backbone"]
 
         if isinstance(blob, dict) and "model" in blob and "epoch" in blob:
-            self.model.load_state_dict(blob["model"])
+            ckpt_backbone = blob.get("backbone")
+            if ckpt_backbone and ckpt_backbone != cfg_backbone:
+                print(f"[resume] BACKBONE MISMATCH  ckpt={ckpt_backbone}  cfg={cfg_backbone}")
+                print(f"[resume] training from scratch — move/delete the stale checkpoints if intentional")
+                return None
+            try:
+                self.model.load_state_dict(blob["model"])
+            except RuntimeError as e:
+                print(f"[resume] state_dict load failed: {str(e)[:200]}")
+                print(f"[resume] training from scratch")
+                return None
             if blob.get("history"):
                 self.history = list(blob["history"])
             print(f"[resume] full state — epoch={blob['epoch']} phase={blob['phase']} "
@@ -344,9 +357,15 @@ class Trainer:
                 "scheduler": blob.get("scheduler"),
             }
 
-        # Old-format bare state_dict. Infer epoch from filename so we don't
-        # redo phase 1 (head warmup is already in the loaded weights).
-        self.model.load_state_dict(blob)
+        # Old-format bare state_dict. Infer epoch from filename; phase-1 warmup
+        # is already in the loaded weights so we skip it.
+        try:
+            self.model.load_state_dict(blob)
+        except RuntimeError as e:
+            print(f"[resume] state_dict load failed (old format, likely architecture mismatch):")
+            print(f"         {str(e)[:200]}")
+            print(f"[resume] training from scratch")
+            return None
         m = re.search(r"epoch_(\d+)", os.path.basename(path))
         inferred = int(m.group(1)) if m else self.tcfg["freeze_epochs"]
         print(f"[resume] weights-only (old format)  inferred epoch={inferred}")
