@@ -10,6 +10,7 @@ Each channel is MinMax-normalized per-slice to [0, 255] uint8.
 
 import os
 import re
+import functools
 import numpy as np
 import nibabel as nib
 
@@ -33,6 +34,9 @@ def setup_paths(nifti_dirs: dict[str, str], mask_dirs: dict[str, str]):
     global _nifti_paths, _mask_paths
     _nifti_paths = nifti_dirs
     _mask_paths = mask_dirs
+    # Cohort dirs may have changed; cached arrays would point at the wrong cohort.
+    load_acquisitions.cache_clear()
+    load_mask.cache_clear()
 
 
 def _cohort_from_pid(pid: str) -> str:
@@ -50,6 +54,10 @@ def _last_int(path):
     return int(m.group(1)) if m else -1
 
 
+# Per-worker LRU caches: __getitem__ is called n_slices times per patient,
+# so without caching we'd decode each NIfTI 8x per epoch. dataobj is a lazy
+# proxy; np.asarray materialises in float32 to halve RAM vs get_fdata's float64.
+@functools.lru_cache(maxsize=64)
 def load_acquisitions(pid: str) -> list[np.ndarray] | None:
     cohort = _cohort_from_pid(pid)
     fpath = _nifti_paths.get(cohort)
@@ -61,9 +69,13 @@ def load_acquisitions(pid: str) -> list[np.ndarray] | None:
     )
     if not files:
         return None
-    return [nib.load(os.path.join(fpath, f)).get_fdata() for f in files]
+    return [
+        np.asarray(nib.load(os.path.join(fpath, f)).dataobj, dtype=np.float32)
+        for f in files
+    ]
 
 
+@functools.lru_cache(maxsize=256)
 def load_mask(pid: str) -> np.ndarray | None:
     cohort = _cohort_from_pid(pid)
     fpath = _mask_paths.get(cohort)
@@ -72,7 +84,7 @@ def load_mask(pid: str) -> np.ndarray | None:
     files = [f for f in os.listdir(fpath) if pid in f]
     if not files:
         return None
-    return nib.load(os.path.join(fpath, files[0])).get_fdata()
+    return np.asarray(nib.load(os.path.join(fpath, files[0])).dataobj, dtype=np.uint8)
 
 
 def find_tumor_z_range(mask: np.ndarray) -> tuple[int, int] | None:

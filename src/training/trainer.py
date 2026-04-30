@@ -6,9 +6,15 @@ Phase 2: Unfreeze all layers with layer-wise learning rate decay (LLRD).
 
 Uses AMP, gradient accumulation, cosine annealing, and early stopping
 on patient-level AUC.
+
+Checkpoints save full training state (model + optimizer + scheduler +
+epoch + phase + best_auc + history) so a Colab disconnect mid-run can
+resume without re-warmup. Old bare-state-dict checkpoints are still
+recognised for backward compat — epoch is inferred from filename.
 """
 
 import os
+import re
 import json
 import torch
 import torch.nn as nn
@@ -20,6 +26,14 @@ from torch.utils.data import DataLoader
 
 from src.models.vit import BreastDCEViT, build_llrd_param_groups
 from src.evaluation.metrics import patient_level_eval
+
+
+def _resolve_amp_dtype(requested: str) -> torch.dtype:
+    """bf16 on A100/H100 is more numerically stable for ViT than fp16.
+    Fall back to fp16 if bf16 isn't supported (V100/older)."""
+    if requested == "bf16" and torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+        return torch.bfloat16
+    return torch.float16
 
 try:
     import wandb
@@ -33,11 +47,12 @@ def run_epoch(
     loader: DataLoader,
     criterion: nn.Module,
     optimizer: optim.Optimizer,
-    scaler: GradScaler,
+    scaler: GradScaler | None,
     device: torch.device,
     accum_steps: int,
     is_train: bool = True,
     use_clinical: bool = False,
+    amp_dtype: torch.dtype = torch.float16,
 ):
     model.train() if is_train else model.eval()
     running_loss = 0.0
@@ -48,6 +63,8 @@ def run_epoch(
 
     if is_train:
         optimizer.zero_grad()
+
+    use_scaler = scaler is not None and amp_dtype == torch.float16
 
     ctx = torch.enable_grad() if is_train else torch.no_grad()
     with ctx:
@@ -62,18 +79,25 @@ def run_epoch(
             images = images.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)
 
-            with autocast():
+            with autocast(dtype=amp_dtype):
                 logits = model(images, clinical)
                 loss = criterion(logits, labels)
 
             if is_train:
                 scaled = loss / accum_steps
-                scaler.scale(scaled).backward()
+                if use_scaler:
+                    scaler.scale(scaled).backward()
+                else:
+                    scaled.backward()
                 if step % accum_steps == 0 or step == len(loader):
-                    scaler.unscale_(optimizer)
+                    if use_scaler:
+                        scaler.unscale_(optimizer)
                     nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                    scaler.step(optimizer)
-                    scaler.update()
+                    if use_scaler:
+                        scaler.step(optimizer)
+                        scaler.update()
+                    else:
+                        optimizer.step()
                     optimizer.zero_grad()
 
             running_correct += (logits.argmax(1) == labels).sum().item()
@@ -102,7 +126,9 @@ class Trainer:
         self.checkpoint_dir = cfg.get("checkpoint_dir", "checkpoints")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
-        self.scaler = GradScaler()
+        self.amp_dtype = _resolve_amp_dtype(self.tcfg.get("amp_dtype", "bf16"))
+        # GradScaler is fp16-only; bf16 has the f32 exponent range and doesn't need it.
+        self.scaler = GradScaler() if self.amp_dtype == torch.float16 else None
         self.history = []
 
         # W&B
@@ -118,11 +144,22 @@ class Trainer:
         patience = self.tcfg["patience"]
         n_slices = self.cfg["data"]["n_slices"]
 
-        best_auc = 0.0
+        resume = self._maybe_load_resume()
+        if resume and resume["mode"] == "full":
+            start_epoch = resume["epoch"] + 1
+            best_auc = resume["best_auc"]
+        elif resume and resume["mode"] == "weights_only":
+            # Old-format ckpt: weights only, no opt/sched. Pick up after the
+            # epoch parsed from the filename; opt/sched will be fresh.
+            start_epoch = resume["epoch"] + 1
+            best_auc = 0.0
+        else:
+            start_epoch = 1
+            best_auc = 0.0
         epochs_no_imp = 0
 
         # Phase 1: frozen backbone
-        if freeze_epochs > 0:
+        if freeze_epochs > 0 and start_epoch <= freeze_epochs:
             self.model.freeze_backbone()
             opt_p1 = optim.AdamW(
                 filter(lambda p: p.requires_grad, self.model.parameters()),
@@ -131,24 +168,30 @@ class Trainer:
             )
             sched_p1 = CosineAnnealingLR(opt_p1, T_max=freeze_epochs, eta_min=1e-6)
 
-            print(f"\n--- Phase 1: head-only ({freeze_epochs} epochs) ---")
-            for epoch in range(1, freeze_epochs + 1):
+            if resume and resume["mode"] == "full" and resume["phase"] == "P1":
+                opt_p1.load_state_dict(resume["optimizer"])
+                sched_p1.load_state_dict(resume["scheduler"])
+                epochs_no_imp = resume["epochs_no_imp"]
+                print(f"  [resume] P1 optimizer/scheduler restored")
+
+            print(f"\n--- Phase 1: head-only (epochs {start_epoch}..{freeze_epochs}) ---")
+            for epoch in range(start_epoch, freeze_epochs + 1):
                 tr_loss, tr_acc, _, _ = run_epoch(
                     self.model, self.train_loader, criterion, opt_p1,
                     self.scaler, self.device, accum, is_train=True,
-                    use_clinical=self.use_clinical,
+                    use_clinical=self.use_clinical, amp_dtype=self.amp_dtype,
                 )
                 vl_loss, vl_acc, vl_logits, vl_labels = run_epoch(
                     self.model, self.val_loader, criterion, opt_p1,
                     self.scaler, self.device, accum, is_train=False,
-                    use_clinical=self.use_clinical,
+                    use_clinical=self.use_clinical, amp_dtype=self.amp_dtype,
                 )
                 sched_p1.step()
 
                 metrics = patient_level_eval(vl_logits, vl_labels, n_slices)
                 self._log(epoch, "P1", tr_loss, tr_acc, vl_loss, vl_acc, metrics)
                 best_auc, epochs_no_imp = self._checkpoint(
-                    epoch, metrics, best_auc, epochs_no_imp,
+                    epoch, "P1", opt_p1, sched_p1, metrics, best_auc, epochs_no_imp,
                 )
 
         # Phase 2: full fine-tune with LLRD
@@ -166,12 +209,17 @@ class Trainer:
         cosine = CosineAnnealingLR(opt_p2, T_max=max(remaining - 1, 1), eta_min=1e-7)
         sched_p2 = SequentialLR(opt_p2, schedulers=[warmup, cosine], milestones=[1])
 
-        epochs_no_imp = 0  # reset for phase 2
+        if resume and resume["mode"] == "full" and resume["phase"] == "P2":
+            opt_p2.load_state_dict(resume["optimizer"])
+            sched_p2.load_state_dict(resume["scheduler"])
+            epochs_no_imp = resume["epochs_no_imp"]
+            print(f"  [resume] P2 optimizer/scheduler restored")
+        else:
+            epochs_no_imp = 0  # reset for phase 2
 
-        print(f"\n--- Phase 2: LLRD fine-tune ({remaining} epochs) ---")
-        for ep_offset in range(1, remaining + 1):
-            epoch = freeze_epochs + ep_offset
-
+        p2_start = max(start_epoch, freeze_epochs + 1)
+        print(f"\n--- Phase 2: LLRD fine-tune (epochs {p2_start}..{num_epochs}) ---")
+        for epoch in range(p2_start, num_epochs + 1):
             if epochs_no_imp >= patience:
                 print(f"Early stopping at epoch {epoch} (patience={patience})")
                 break
@@ -179,19 +227,19 @@ class Trainer:
             tr_loss, tr_acc, _, _ = run_epoch(
                 self.model, self.train_loader, criterion, opt_p2,
                 self.scaler, self.device, accum, is_train=True,
-                use_clinical=self.use_clinical,
+                use_clinical=self.use_clinical, amp_dtype=self.amp_dtype,
             )
             vl_loss, vl_acc, vl_logits, vl_labels = run_epoch(
                 self.model, self.val_loader, criterion, opt_p2,
                 self.scaler, self.device, accum, is_train=False,
-                use_clinical=self.use_clinical,
+                use_clinical=self.use_clinical, amp_dtype=self.amp_dtype,
             )
             sched_p2.step()
 
             metrics = patient_level_eval(vl_logits, vl_labels, n_slices)
             self._log(epoch, "P2", tr_loss, tr_acc, vl_loss, vl_acc, metrics)
             best_auc, epochs_no_imp = self._checkpoint(
-                epoch, metrics, best_auc, epochs_no_imp,
+                epoch, "P2", opt_p2, sched_p2, metrics, best_auc, epochs_no_imp,
             )
 
         self._save_history()
@@ -239,12 +287,12 @@ class Trainer:
                 "val/npv": metrics["npv"],
             }, step=epoch)
 
-    def _checkpoint(self, epoch, metrics, best_auc, epochs_no_imp):
+    def _checkpoint(self, epoch, phase, optimizer, scheduler, metrics, best_auc, epochs_no_imp):
         if metrics["auc"] > best_auc:
             best_auc = metrics["auc"]
             epochs_no_imp = 0
             path = os.path.join(self.checkpoint_dir, "best.pth")
-            torch.save(self.model.state_dict(), path)
+            self._save_full(path, epoch, phase, optimizer, scheduler, best_auc, epochs_no_imp)
             print(f"  -> New best AUC: {best_auc:.4f} saved to {path}")
             if self.use_wandb:
                 wandb.run.summary["best_auc"] = best_auc
@@ -253,8 +301,56 @@ class Trainer:
             epochs_no_imp += 1
 
         path = os.path.join(self.checkpoint_dir, f"epoch_{epoch:02d}.pth")
-        torch.save(self.model.state_dict(), path)
+        self._save_full(path, epoch, phase, optimizer, scheduler, best_auc, epochs_no_imp)
         return best_auc, epochs_no_imp
+
+    def _save_full(self, path, epoch, phase, optimizer, scheduler, best_auc, epochs_no_imp):
+        """Save model + training state so a disconnect mid-run can fully resume."""
+        torch.save({
+            "model": self.model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "scheduler": scheduler.state_dict(),
+            "epoch": epoch,
+            "phase": phase,
+            "best_auc": best_auc,
+            "epochs_no_imp": epochs_no_imp,
+            "history": self.history,
+            "amp_dtype": str(self.amp_dtype),
+        }, path)
+
+    def _maybe_load_resume(self):
+        """Detect and load a resume checkpoint pointed at by cfg['resume'].
+        Returns None if no resume; dict with mode='full'|'weights_only' otherwise."""
+        path = self.cfg.get("resume")
+        if not path or not os.path.isfile(path):
+            return None
+
+        print(f"\n[resume] loading from {path}")
+        blob = torch.load(path, map_location=self.device, weights_only=False)
+
+        if isinstance(blob, dict) and "model" in blob and "epoch" in blob:
+            self.model.load_state_dict(blob["model"])
+            if blob.get("history"):
+                self.history = list(blob["history"])
+            print(f"[resume] full state — epoch={blob['epoch']} phase={blob['phase']} "
+                  f"best_auc={blob.get('best_auc', 0.0):.4f}")
+            return {
+                "mode": "full",
+                "epoch": int(blob["epoch"]),
+                "phase": blob["phase"],
+                "best_auc": float(blob.get("best_auc", 0.0)),
+                "epochs_no_imp": int(blob.get("epochs_no_imp", 0)),
+                "optimizer": blob.get("optimizer"),
+                "scheduler": blob.get("scheduler"),
+            }
+
+        # Old-format bare state_dict. Infer epoch from filename so we don't
+        # redo phase 1 (head warmup is already in the loaded weights).
+        self.model.load_state_dict(blob)
+        m = re.search(r"epoch_(\d+)", os.path.basename(path))
+        inferred = int(m.group(1)) if m else self.tcfg["freeze_epochs"]
+        print(f"[resume] weights-only (old format)  inferred epoch={inferred}")
+        return {"mode": "weights_only", "epoch": inferred}
 
     def _save_history(self):
         path = os.path.join(self.checkpoint_dir, "history.json")

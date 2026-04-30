@@ -66,8 +66,13 @@ def train_from_config(cfg: dict) -> float:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if torch.cuda.is_available():
+        # TF32 on Ampere+ gives ~2x matmul throughput at near-fp32 numerics.
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
         print(f"[device] {torch.cuda.get_device_name(0)} "
               f"({torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB)")
+        print(f"[amp]    bf16_supported={torch.cuda.is_bf16_supported()}  "
+              f"requested={cfg['training'].get('amp_dtype', 'bf16')}")
     else:
         print("[device] CPU")
 
@@ -145,13 +150,20 @@ def train_from_config(cfg: dict) -> float:
     )
 
     tcfg = cfg["training"]
+    nw = tcfg["num_workers"]
+    loader_kwargs = {"num_workers": nw, "pin_memory": True}
+    if nw > 0:
+        # persistent_workers keeps the LRU cache in src/data/preprocessing.py warm
+        # across epochs; prefetch_factor=4 keeps the GPU fed during NIfTI decode.
+        loader_kwargs["persistent_workers"] = True
+        loader_kwargs["prefetch_factor"] = 4
     train_loader = DataLoader(
         train_ds, batch_size=tcfg["batch_size"], shuffle=True,
-        num_workers=tcfg["num_workers"], pin_memory=True, drop_last=True,
+        drop_last=True, **loader_kwargs,
     )
     val_loader = DataLoader(
         val_ds, batch_size=tcfg["batch_size"], shuffle=False,
-        num_workers=tcfg["num_workers"], pin_memory=True,
+        **loader_kwargs,
     )
 
     eff_batch = tcfg["batch_size"] * tcfg["accum_steps"]
@@ -182,11 +194,8 @@ def train_from_config(cfg: dict) -> float:
         criterion = FocalLoss(gamma=2.0, weight=weights)
     print(f"[loss] {loss_type} with class weights {weights.cpu().tolist()}")
 
-    # Resume
-    resume_path = cfg.get("resume")
-    if resume_path and os.path.isfile(resume_path):
-        model.load_state_dict(torch.load(resume_path, map_location=device))
-        print(f"[resume] Loaded weights from {resume_path}")
+    # Resume — Trainer handles this internally now (full or partial state).
+    # See src/training/trainer.py::_maybe_load_resume.
 
     # Train
     trainer = Trainer(model, train_loader, val_loader, val_df, cfg, device)

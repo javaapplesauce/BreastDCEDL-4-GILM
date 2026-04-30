@@ -43,7 +43,8 @@ training:
   llrd: 0.85
   weight_decay: 0.01
   patience: 10
-  num_workers: 4
+  num_workers: 8
+  amp_dtype: bf16  # bf16 on A100/H100; falls back to fp16 on V100/older.
   seed: 42
 
   # Augmentation
