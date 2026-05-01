@@ -7,6 +7,7 @@ Wraps HuggingFace ViT/DINOv2 with:
   - LLRD parameter group construction
 """
 
+import math
 import torch
 import torch.nn as nn
 from transformers import ViTForImageClassification, Dinov2ForImageClassification
@@ -22,6 +23,7 @@ class BreastDCEViT(nn.Module):
         use_clinical: bool = False,
         clinical_dim: int = 0,
         pretrained_weights: str | None = None,
+        pos_class_prior: float = 0.5,
     ):
         super().__init__()
         self.use_clinical = use_clinical
@@ -43,14 +45,34 @@ class BreastDCEViT(nn.Module):
             nn.Linear(head_input, num_classes),
         )
 
+        # Bias-init to log-prior breaks the all-positive symmetry that focal-
+        # weighted loss has trouble escaping with a frozen backbone. If
+        # load_pretrained subsequently warmstarts the head from the paper's
+        # checkpoint, this is overwritten — which is what we want.
+        if num_classes == 2 and 0.0 < pos_class_prior < 1.0:
+            self._init_head_bias_to_prior(pos_class_prior)
+
         if pretrained_weights:
             self.load_pretrained(pretrained_weights)
+
+    def _init_head_bias_to_prior(self, p: float):
+        """Set head bias so softmax(bias) = [1-p, p] at init. Avoids the
+        all-positive collapse seen when focal+class-weights+frozen-backbone
+        train a randomly-initialised head."""
+        delta = math.log(p / (1.0 - p))  # logit of class 1
+        bias = torch.tensor([-delta / 2.0, delta / 2.0], dtype=torch.float32)
+        with torch.no_grad():
+            self.head[1].bias.copy_(bias)
 
     def load_pretrained(self, path: str):
         """Load pretrained weights (e.g. paper's checkpoint from Zenodo).
         Accepts either an already-wrapped state_dict (has `encoder.`/`head.`
-        keys) or a bare HF ViTForImageClassification state_dict. Skips
-        classifier-head mismatches gracefully."""
+        keys) or a bare HF ViTForImageClassification state_dict. Tries to
+        load the paper's classifier into our head.1 — the paper trained
+        for 2-class pCR so shapes match unless use_clinical=True changes
+        head_input. Classifier weight+bias are loaded as a pair (both or
+        neither) so we never end up with a paper-bias on a paper-foreign
+        weight."""
         import os
         if not os.path.isfile(path):
             print(f"  [pretrained] Not found: {path}")
@@ -59,18 +81,43 @@ class BreastDCEViT(nn.Module):
         if isinstance(sd, dict) and "state_dict" in sd:
             sd = sd["state_dict"]
 
+        own = self.state_dict()
+        target_sd = {}
         has_wrapper = any(k.startswith("encoder.") for k in sd)
-        if has_wrapper:
-            target_sd = sd
-        else:
-            # Remap bare HF state_dict -> self.encoder.*
-            target_sd = {}
-            for k, v in sd.items():
-                if k.startswith("classifier."):
-                    continue  # skip head weights (shape may differ)
-                target_sd[f"encoder.{k}"] = v
+
+        # Decide head load up front — we want weight+bias as a pair, or skip both.
+        classifier_loaded = False
+        if not has_wrapper:
+            cls_w, cls_b = sd.get("classifier.weight"), sd.get("classifier.bias")
+            head_w, head_b = own.get("head.1.weight"), own.get("head.1.bias")
+            if (cls_w is not None and cls_b is not None
+                    and head_w is not None and head_b is not None
+                    and head_w.shape == cls_w.shape and head_b.shape == cls_b.shape):
+                target_sd["head.1.weight"] = cls_w
+                target_sd["head.1.bias"] = cls_b
+                classifier_loaded = True
+            elif cls_w is not None or cls_b is not None:
+                shape_ours = tuple(head_w.shape) if head_w is not None else None
+                shape_theirs = tuple(cls_w.shape) if cls_w is not None else None
+                print(f"  [pretrained] skipping classifier: ours={shape_ours} theirs={shape_theirs}")
+
+        for k, v in sd.items():
+            if has_wrapper:
+                new_k = k
+            elif k.startswith("classifier."):
+                continue  # already handled above
+            else:
+                new_k = f"encoder.{k}"
+            if new_k in own and own[new_k].shape == v.shape:
+                target_sd[new_k] = v
+
         missing, unexpected = self.load_state_dict(target_sd, strict=False)
+        head_missing = sum(1 for m in missing if m.startswith("head.1."))
         print(f"  [pretrained] loaded {path}  missing={len(missing)} unexpected={len(unexpected)}")
+        if classifier_loaded:
+            print(f"  [pretrained]   classifier warmstarted from paper checkpoint")
+        elif head_missing > 0:
+            print(f"  [pretrained]   head random-init (bias-init kept; classifier shape mismatch or absent)")
 
     def forward(self, pixel_values: torch.Tensor, clinical: torch.Tensor = None):
         features = self.encoder(pixel_values).logits  # (B, hidden)
