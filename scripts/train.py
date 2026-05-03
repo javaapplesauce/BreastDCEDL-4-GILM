@@ -115,6 +115,14 @@ def train_from_config(cfg: dict) -> float:
         val_df = val_df.reset_index(drop=True)
         test_df = test_df.reset_index(drop=True)
 
+    # Optional cohort filter (e.g. ['spy2'] for the paper's I-SPY2-only model).
+    ds_filter = dcfg.get("dataset_filter")
+    if ds_filter and "dataset" in train_df.columns:
+        print(f"[data] dataset_filter active: {ds_filter}")
+        train_df = train_df[train_df["dataset"].isin(ds_filter)].reset_index(drop=True)
+        val_df   = val_df[val_df["dataset"].isin(ds_filter)].reset_index(drop=True)
+        test_df  = test_df[test_df["dataset"].isin(ds_filter)].reset_index(drop=True)
+
     print(f"[data] Train: {len(train_df)}  Val: {len(val_df)}  Test: {len(test_df)}")
     pcr_rate = train_df[dcfg["label_col"]].mean()
     print(f"[data] Train pCR rate: {pcr_rate:.1%}")
