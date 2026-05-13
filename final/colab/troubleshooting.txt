@@ -1,0 +1,220 @@
+BreastDCEDL-4-GILM — Colab Pipeline Troubleshooting Log
+========================================================
+
+Chronological record of errors hit while building and running the A100 Colab
+notebook (colab/breastdcedl_a100.ipynb), their root causes, and the fixes
+applied.
+
+
+-------------------------------------------------------------------------------
+1. NotebookEdit wrote `source` as a string instead of list-of-lines
+-------------------------------------------------------------------------------
+Error:
+    The canonical .ipynb schema expects cell["source"] to be a list of line
+    strings (with trailing "\n"). The NotebookEdit tool serialized it as a
+    single string. Some renderers tolerate this; the schema does not.
+
+Why:
+    NotebookEdit's `new_source` arg is a single string and the tool writes it
+    through verbatim without re-splitting on newlines.
+
+Fix:
+    Post-process the notebook with a small Python script that normalizes every
+    cell via `splitlines(keepends=True)`. Ran after every NotebookEdit call:
+
+        for c in nb["cells"]:
+            if isinstance(c["source"], str):
+                c["source"] = c["source"].splitlines(keepends=True)
+
+
+-------------------------------------------------------------------------------
+2. evaluate_by_subtype failed with "Input y_true contains NaN"
+-------------------------------------------------------------------------------
+Error:
+    Local test of src/evaluation/metrics.py::evaluate_by_subtype raised
+    ValueError from sklearn because the test DataFrame had NaN pCR labels.
+
+Why:
+    ~640 patients in the Duke cohort are missing pCR labels in the MinCrop
+    metadata. The unit test wasn't filtering them.
+
+Fix:
+    Filter NaNs before running the test:
+        df = df.dropna(subset=["pCR"])
+    The real pipeline already does this via load_and_split; only the
+    standalone test needed the filter.
+
+
+-------------------------------------------------------------------------------
+3. zsh stuck at `heredoc>` / `cmdand dquote cmdsubst heredoc>` prompt
+-------------------------------------------------------------------------------
+Error:
+    Pasting a multi-line `git commit -m "$(cat <<'EOF' ... EOF)"` heredoc into
+    zsh left the shell blocked on a continuation prompt, never executing.
+
+Why:
+    Either the closing `EOF` ended up with leading whitespace, or the paste
+    lost the trailing newline after `EOF`. Either way the heredoc never
+    terminated.
+
+Fix:
+    Replaced the heredoc with multiple `-m` flags (each becomes its own
+    commit-body paragraph). Single-line form, no continuations:
+
+        git commit -m "Title" -m "Para 1" -m "Para 2"
+
+
+-------------------------------------------------------------------------------
+4. `git clone` hangs at "Compressing objects: 100% (150/150), done."
+-------------------------------------------------------------------------------
+Error:
+    `git clone` in Colab's cell 6 stalled for minutes at the compression
+    stage, no progress.
+
+Why:
+    The repo's git history contains 1.2 GB of committed sample files —
+    DUKE DICOM, NIfTI acquisitions, duplicate demo notebooks. Full-history
+    clone has to transfer ~1 GB over Colab's network, which is slow and
+    looks frozen.
+
+    Diagnostic:
+        du -sh .git                          → 1.2G
+        git rev-list --objects --all | ...   → many 25–50 MB blobs
+
+Fix:
+    Updated cell 6 to use a shallow single-branch clone:
+        git clone --depth=1 --single-branch $REPO_URL $REPO_DIR
+    Fetches only the tip of main (~a few MB) in seconds.
+
+    Longer-term cleanup (not yet done): git-filter-repo to purge the
+    oversized blobs from history entirely.
+
+
+-------------------------------------------------------------------------------
+5. ModuleNotFoundError: No module named 'src'
+-------------------------------------------------------------------------------
+Error:
+    Cell 11's `from src.data.zenodo import download_zenodo` failed even
+    though /content/breastdcedl/src existed and cwd was inside the repo.
+
+Why:
+    Jupyter's `sys.path` is not updated by the `%cd` magic. Even after
+    `%cd /content/breastdcedl`, Python still searches the kernel's startup
+    directory (/content), so `src` is not importable.
+
+    Aggravating factor: Colab occasionally restarts the kernel after heavy
+    pip installs, which wipes any `sys.path.insert(...)` done earlier in
+    the session.
+
+Fix:
+    Updated cell 7 to:
+      (a) assert the repo directory exists (clear error if the runtime
+          wiped /content),
+      (b) chdir into it,
+      (c) insert it into sys.path,
+      (d) auto-create __init__.py stubs for src/, src/data/, src/models/,
+          src/training/, src/evaluation/ (shallow clones or stripped
+          snapshots can omit these).
+
+
+-------------------------------------------------------------------------------
+6. FileNotFoundError: /content/breastdcedl
+-------------------------------------------------------------------------------
+Error:
+    `os.chdir('/content/breastdcedl')` raised FileNotFoundError mid-session.
+
+Why:
+    Colab runtime restarted. The /content/ filesystem is ephemeral;
+    only /content/drive/MyDrive survives a runtime reset. The clone
+    from cell 6 was gone.
+
+Fix:
+    Re-ran cell 6 (clone) before cell 7 (sys.path). Cell 7's new assert
+    now produces a clear error message pointing at the clone cell instead
+    of a bare FileNotFoundError.
+
+
+-------------------------------------------------------------------------------
+7. zsh: command not found:  git  (note the double space)
+-------------------------------------------------------------------------------
+Error:
+    Running the provided multi-line commit command with `&& \` continuations
+    produced `zsh: command not found:  git` with a visible extra space.
+
+Why:
+    On paste, the backslash line-continuation was either dropped or trailed
+    by a non-breaking space, so zsh saw a blank command name followed by
+    " git".
+
+Fix:
+    Gave single-line forms joined with `&&`, no backslash continuations.
+    If even that fails, run `git add`, `git commit`, `git push` as three
+    separate commands.
+
+
+-------------------------------------------------------------------------------
+8. Data download + extraction taking hours instead of minutes
+-------------------------------------------------------------------------------
+Error:
+    Cell 11 (`download_zenodo(...)` with DATA_DIR on Drive) appeared frozen
+    after the 24 GB download finished, actually spending hours extracting.
+
+Why:
+    DATA_DIR was on the Drive FUSE mount
+    (/content/drive/MyDrive/breastdcedl/data). Writing ~2000 small .nii.gz
+    files to Drive goes through Google's sync layer, which batches and rate-
+    limits — roughly 100× slower than local disk for many-small-files.
+
+Fix:
+    Rewrote cell 11 with a two-tier cache:
+      - DRIVE_CACHE = DATA_DIR            (persistent tar.gz archives)
+      - LOCAL_DATA  = /content/data       (fast local extraction target)
+    Downloads go to Drive cache; extraction streams from cache to local
+    disk. Cell reassigns DATA_DIR = LOCAL_DATA so all downstream cells read
+    from the fast path. Marker files (.extracted_<subset>) prevent repeat
+    extraction on re-runs.
+
+    Trade-off: on runtime restart, we re-extract (~3–5 min) instead of
+    re-downloading (~30–40 min).
+
+
+-------------------------------------------------------------------------------
+9. EOFError: Compressed file ended before the end-of-stream marker was reached
+-------------------------------------------------------------------------------
+Error:
+    tarfile.extractall on the cached ISPY2 archive raised EOFError from
+    within gzip.read.
+
+Why:
+    A previous cell-11 run was interrupted mid-download. The partial file
+    (1040 MB of the expected 13.6 GB) remained in the Drive cache. When
+    cell 11 re-ran, the `if not os.path.isfile(cached): download()` guard
+    saw the file and skipped re-downloading. Extraction then hit a truncated
+    gzip stream.
+
+Fix:
+    Updated cell 11 to do a HEAD request against the Zenodo URL, compare
+    the server's Content-Length to the local file size, and re-download
+    if they don't match. Also invalidates the .extracted_<subset> marker
+    so the subsequent extract step re-runs. Silent partial-download
+    failures are now caught before extraction.
+
+    Immediate mitigation for the running session:
+        !rm {DRIVE_CACHE}/BreastDCEDL_ISPY2_min_crop.tar.gz
+        !rm -f {LOCAL_DATA}/.extracted_ispy2
+    then re-run cell 11.
+
+
+-------------------------------------------------------------------------------
+Lessons / recurring themes
+-------------------------------------------------------------------------------
+- Anything on /content/ is ephemeral; anything on /content/drive persists.
+  Use Drive for expensive artifacts (archives, checkpoints), local disk for
+  anything that will be read many times by the training loop.
+- Silent progress (pip -q, urllib.urlretrieve, long gzip extractions) looks
+  like a hang. Prefer tools that emit progress; add timing logs otherwise.
+- Trust boundaries for cached files: size check against HEAD is cheap and
+  catches the common failure (partial download). MD5 checks are overkill
+  on multi-GB Drive-mounted files.
+- Jupyter's sys.path does not follow `%cd`. Always pair `%cd` with an
+  explicit `sys.path.insert(...)` in a separate cell that is safe to re-run.
