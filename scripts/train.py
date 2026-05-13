@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import os
+import random
 import sys
 from pathlib import Path
 
@@ -23,6 +24,15 @@ import torch
 import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader
+
+
+def _worker_init_fn(worker_id):
+    """Seed each DataLoader worker's numpy and random RNGs deterministically
+    based on the parent process seed. PyTorch already seeds torch.* per
+    worker via worker_id; numpy and random need to be done manually."""
+    seed = torch.initial_seed() % 2**32
+    np.random.seed(seed)
+    random.seed(seed)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -61,6 +71,12 @@ def train_from_config(cfg: dict) -> float:
     seed = cfg["training"].get("seed", 42)
     torch.manual_seed(seed)
     np.random.seed(seed)
+    random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    # We deliberately do NOT call torch.use_deterministic_algorithms(True):
+    # it breaks some attention ops on A100 (scaled_dot_product, certain
+    # cudnn paths) and offers limited benefit over the seeding above.
 
     _init_wandb(cfg)
 
@@ -164,7 +180,8 @@ def train_from_config(cfg: dict) -> float:
 
     tcfg = cfg["training"]
     nw = tcfg["num_workers"]
-    loader_kwargs = {"num_workers": nw, "pin_memory": True}
+    loader_kwargs = {"num_workers": nw, "pin_memory": True,
+                     "worker_init_fn": _worker_init_fn}
     if nw > 0:
         # persistent_workers keeps the LRU cache in src/data/preprocessing.py warm
         # across epochs; prefetch_factor=4 keeps the GPU fed during NIfTI decode.
