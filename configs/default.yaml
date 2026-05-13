@@ -17,6 +17,13 @@ data:
   crop_size: 224
   n_slices: 8
 
+  # Per-VOLUME, channel-SHARED percentile normalization preserves relative
+  # intensity between DCE timepoints (the actual signal). `minmax_per_slice`
+  # is the legacy per-slice-per-channel rescaling kept only for ablation.
+  normalization: percentile
+  percentile_lo: 1.0
+  percentile_hi: 99.0
+
   # SER timepoint indices per cohort (paper Section 2.5)
   # I-SPY: timepoints 0, 2, min(last_index, 6)
   # Duke:  timepoints 0, 1, final acquisition

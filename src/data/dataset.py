@@ -18,6 +18,7 @@ from src.data.preprocessing import (
     load_mask,
     find_tumor_z_range,
     fuse_rgb_slice,
+    _percentile_uint8_volume,
     select_timepoints,
     _cohort_from_pid,
 )
@@ -96,6 +97,9 @@ class BreastDCEDataset(Dataset):
         n_slices: int = 8,
         transform=None,
         clinical_cols: list[str] | None = None,
+        normalization: str = "percentile",
+        percentile_lo: float = 1.0,
+        percentile_hi: float = 99.0,
     ):
         self.df = df.dropna(subset=[label_col]).reset_index(drop=True)
         self.label_col = label_col
@@ -103,6 +107,14 @@ class BreastDCEDataset(Dataset):
         self.n_slices = n_slices
         self.transform = transform
         self.clinical_cols = clinical_cols
+        if normalization not in ("percentile", "minmax_per_slice"):
+            raise ValueError(
+                f"normalization={normalization!r} not in "
+                "{'percentile','minmax_per_slice'}"
+            )
+        self.normalization = normalization
+        self.percentile_lo = float(percentile_lo)
+        self.percentile_hi = float(percentile_hi)
 
         # Precompute clinical feature normalization stats. mean/std are
         # computed with skipna; missing values are then imputed to the column
@@ -159,7 +171,18 @@ class BreastDCEDataset(Dataset):
             mid = (f + l) // 2
             k = max(f, min(l, mid - self.n_slices // 2 + slice_offset))
 
-            rgb = fuse_rgb_slice(pre[:, :, k], early[:, :, k], late[:, :, k])
+            if self.normalization == "percentile":
+                pre_n, early_n, late_n = _percentile_uint8_volume(
+                    [pre, early, late],
+                    lo_pct=self.percentile_lo, hi_pct=self.percentile_hi,
+                )
+                rgb = np.stack(
+                    [pre_n[:, :, k], early_n[:, :, k], late_n[:, :, k]],
+                    axis=-1,
+                )
+            else:
+                # legacy per-slice MinMax, kept for ablation only.
+                rgb = fuse_rgb_slice(pre[:, :, k], early[:, :, k], late[:, :, k])
             img = Image.fromarray(rgb, mode="RGB")
 
             cx, cy = _roi_centre(row, pre.shape)

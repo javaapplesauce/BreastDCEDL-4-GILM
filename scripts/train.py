@@ -146,15 +146,20 @@ def train_from_config(cfg: dict) -> float:
     # Datasets
     crop = dcfg.get("crop_size", 224)
     n_slices = dcfg.get("n_slices", 8)
+    norm_kwargs = dict(
+        normalization=dcfg.get("normalization", "percentile"),
+        percentile_lo=dcfg.get("percentile_lo", 1.0),
+        percentile_hi=dcfg.get("percentile_hi", 99.0),
+    )
     train_ds = BreastDCEDataset(
         train_df, label_col=dcfg["label_col"], crop_size=crop,
         n_slices=n_slices, transform=train_transform,
-        clinical_cols=clinical_cols,
+        clinical_cols=clinical_cols, **norm_kwargs,
     )
     val_ds = BreastDCEDataset(
         val_df, label_col=dcfg["label_col"], crop_size=crop,
         n_slices=n_slices, transform=val_transform,
-        clinical_cols=clinical_cols,
+        clinical_cols=clinical_cols, **norm_kwargs,
     )
 
     tcfg = cfg["training"]
