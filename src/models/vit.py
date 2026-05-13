@@ -24,6 +24,7 @@ class BreastDCEViT(nn.Module):
         clinical_dim: int = 0,
         pretrained_weights: str | None = None,
         pos_class_prior: float = 0.5,
+        debug_pretrained: bool = True,
     ):
         super().__init__()
         self.use_clinical = use_clinical
@@ -53,7 +54,7 @@ class BreastDCEViT(nn.Module):
             self._init_head_bias_to_prior(pos_class_prior)
 
         if pretrained_weights:
-            self.load_pretrained(pretrained_weights)
+            self.load_pretrained(pretrained_weights, debug=debug_pretrained)
 
     def _init_head_bias_to_prior(self, p: float):
         """Set head bias so softmax(bias) = [1-p, p] at init. Avoids the
@@ -64,7 +65,7 @@ class BreastDCEViT(nn.Module):
         with torch.no_grad():
             self.head[1].bias.copy_(bias)
 
-    def load_pretrained(self, path: str):
+    def load_pretrained(self, path: str, debug: bool = False):
         """Load pretrained weights (e.g. paper's checkpoint from Zenodo).
         Accepts either an already-wrapped state_dict (has `encoder.`/`head.`
         keys) or a bare HF ViTForImageClassification state_dict. Tries to
@@ -72,7 +73,16 @@ class BreastDCEViT(nn.Module):
         for 2-class pCR so shapes match unless use_clinical=True changes
         head_input. Classifier weight+bias are loaded as a pair (both or
         neither) so we never end up with a paper-bias on a paper-foreign
-        weight."""
+        weight.
+
+        Note on the pooler: HF ViTForImageClassification.forward uses
+        sequence_output[:, 0] (the CLS token) directly and never calls
+        self.vit.pooler on the classification path. So any pooler.*
+        weights in the paper checkpoint are dead — they map to keys we
+        own but no forward pass reads. The debug listing below makes this
+        visible by printing which keys were transferred and which were
+        dropped.
+        """
         import os
         if not os.path.isfile(path):
             print(f"  [pretrained] Not found: {path}")
@@ -101,23 +111,59 @@ class BreastDCEViT(nn.Module):
                 shape_theirs = tuple(cls_w.shape) if cls_w is not None else None
                 print(f"  [pretrained] skipping classifier: ours={shape_ours} theirs={shape_theirs}")
 
+        dropped_keys: list[tuple[str, str]] = []  # (key, reason)
         for k, v in sd.items():
             if has_wrapper:
                 new_k = k
             elif k.startswith("classifier."):
-                continue  # already handled above
+                if not classifier_loaded:
+                    dropped_keys.append((k, "classifier handled separately (shape mismatch)"))
+                continue
             else:
                 new_k = f"encoder.{k}"
-            if new_k in own and own[new_k].shape == v.shape:
-                target_sd[new_k] = v
+            if new_k not in own:
+                dropped_keys.append((k, f"no target key ({new_k!r})"))
+                continue
+            if own[new_k].shape != v.shape:
+                dropped_keys.append(
+                    (k, f"shape mismatch ours={tuple(own[new_k].shape)} theirs={tuple(v.shape)}")
+                )
+                continue
+            target_sd[new_k] = v
 
         missing, unexpected = self.load_state_dict(target_sd, strict=False)
         head_missing = sum(1 for m in missing if m.startswith("head.1."))
-        print(f"  [pretrained] loaded {path}  missing={len(missing)} unexpected={len(unexpected)}")
+        print(f"  [pretrained] loaded {path}")
+        print(f"  [pretrained]   transferred={len(target_sd)} keys  "
+              f"dropped={len(dropped_keys)}  missing={len(missing)}  unexpected={len(unexpected)}")
         if classifier_loaded:
             print(f"  [pretrained]   classifier warmstarted from paper checkpoint")
         elif head_missing > 0:
             print(f"  [pretrained]   head random-init (bias-init kept; classifier shape mismatch or absent)")
+
+        if debug:
+            print(f"  [pretrained-debug] checkpoint keys total: {len(sd)}")
+            print(f"  [pretrained-debug] non-encoder top-level keys: "
+                  f"{sorted(k.split('.')[0] for k in sd if '.' in k and not k.startswith('encoder.'))[:20]}")
+            if target_sd:
+                shown = list(target_sd.keys())
+                print(f"  [pretrained-debug] transferred ({len(shown)}):")
+                for k in shown[:30]:
+                    print(f"  [pretrained-debug]   + {k}")
+                if len(shown) > 30:
+                    print(f"  [pretrained-debug]   + ... and {len(shown)-30} more")
+            if dropped_keys:
+                print(f"  [pretrained-debug] dropped ({len(dropped_keys)}):")
+                for k, reason in dropped_keys[:30]:
+                    print(f"  [pretrained-debug]   - {k}  [{reason}]")
+                if len(dropped_keys) > 30:
+                    print(f"  [pretrained-debug]   - ... and {len(dropped_keys)-30} more")
+            if missing:
+                print(f"  [pretrained-debug] keys we own but ckpt did not provide ({len(missing)}):")
+                for k in missing[:30]:
+                    print(f"  [pretrained-debug]   ? {k}")
+                if len(missing) > 30:
+                    print(f"  [pretrained-debug]   ? ... and {len(missing)-30} more")
 
     def forward(self, pixel_values: torch.Tensor, clinical: torch.Tensor = None):
         features = self.encoder(pixel_values).logits  # (B, hidden)

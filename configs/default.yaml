@@ -39,6 +39,10 @@ model:
   use_clinical: false
   clinical_features: [tum_vol, age, HR, HER2]
   clinical_dim: 4
+  # Audit which keys from the paper's .pth get transferred vs dropped.
+  # Defaults on for the first run after the load-path rewrite so missed
+  # transfers are visible; flip off later for quieter logs.
+  debug_pretrained: true
 
 training:
   num_epochs: 30

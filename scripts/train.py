@@ -193,6 +193,7 @@ def train_from_config(cfg: dict) -> float:
         clinical_dim=clinical_dim,
         pretrained_weights=mcfg.get("pretrained_weights"),
         pos_class_prior=float(pcr_rate),
+        debug_pretrained=mcfg.get("debug_pretrained", True),
     ).to(device)
 
     total_params = sum(p.numel() for p in model.parameters())
