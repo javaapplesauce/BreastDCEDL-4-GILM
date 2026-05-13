@@ -211,6 +211,7 @@ def train_from_config(cfg: dict) -> float:
         pretrained_weights=mcfg.get("pretrained_weights"),
         pos_class_prior=float(pcr_rate),
         debug_pretrained=mcfg.get("debug_pretrained", True),
+        load_paper_classifier=mcfg.get("load_paper_classifier", True),
     ).to(device)
 
     total_params = sum(p.numel() for p in model.parameters())
