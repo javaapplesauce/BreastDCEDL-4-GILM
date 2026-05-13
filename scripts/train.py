@@ -201,13 +201,14 @@ def train_from_config(cfg: dict) -> float:
 
     # Loss
     loss_type = tcfg.get("loss", "focal")
+    gamma = float(tcfg.get("loss_gamma", 2.0))
     labels_list = train_df[dcfg["label_col"]].tolist()
     weights = build_class_weights(labels_list, mcfg["num_classes"]).to(device)
     if loss_type == "ce":
         criterion = torch.nn.CrossEntropyLoss(weight=weights)
     else:
-        criterion = FocalLoss(gamma=2.0, weight=weights)
-    print(f"[loss] {loss_type} with class weights {weights.cpu().tolist()}")
+        criterion = FocalLoss(gamma=gamma, weight=weights)
+    print(f"[loss] {loss_type} gamma={gamma}  class weights {weights.cpu().tolist()}")
 
     # Resume — Trainer handles this internally now (full or partial state).
     # See src/training/trainer.py::_maybe_load_resume.

@@ -59,6 +59,10 @@ training:
   # Was 10; tightened to 7 with the new normalization, head-bias init,
   # and class-weights formula so validation can stop sooner once the
   # learning signal flattens.
+  loss: focal
+  # Focal gamma. 0 reduces FocalLoss to plain CE, 2.0 is the
+  # paper-recommended setting. Surfaced as a knob for ablation.
+  loss_gamma: 2.0
   patience: 7
   num_workers: 8
   amp_dtype: bf16  # bf16 on A100/H100; falls back to fp16 on V100/older.
