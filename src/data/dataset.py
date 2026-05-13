@@ -104,12 +104,18 @@ class BreastDCEDataset(Dataset):
         self.transform = transform
         self.clinical_cols = clinical_cols
 
-        # Precompute clinical feature normalization stats
+        # Precompute clinical feature normalization stats. mean/std are
+        # computed with skipna; missing values are then imputed to the column
+        # mean at __getitem__ time so (NaN-mean)/std doesn't propagate NaN
+        # through the model. Floor std for near-constant binary columns.
         if clinical_cols:
             available = [c for c in clinical_cols if c in self.df.columns]
             self.clinical_cols = available
-            self._clin_mean = self.df[available].mean().values.astype(np.float32)
-            self._clin_std = self.df[available].std().values.astype(np.float32) + 1e-6
+            self._clin_mean = (
+                self.df[available].mean(skipna=True).fillna(0.0).values.astype(np.float32)
+            )
+            std = self.df[available].std(skipna=True).fillna(1.0).values.astype(np.float32)
+            self._clin_std = np.where(std < 1e-3, 1.0, std).astype(np.float32)
         else:
             self.clinical_cols = None
 
@@ -179,6 +185,7 @@ class BreastDCEDataset(Dataset):
 
         if self.clinical_cols:
             clin = self.df.iloc[row_idx][self.clinical_cols].values.astype(np.float32)
+            clin = np.where(np.isnan(clin), self._clin_mean, clin)
             clin = (clin - self._clin_mean) / self._clin_std
             return img, label, torch.from_numpy(clin)
 
