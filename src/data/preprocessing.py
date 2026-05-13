@@ -102,14 +102,42 @@ def _minmax_uint8(arr: np.ndarray) -> np.ndarray:
     return ((arr - lo) / (hi - lo) * 255).astype(np.uint8)
 
 
+def _percentile_uint8_volume(
+    volumes: list[np.ndarray],
+    lo_pct: float = 1.0,
+    hi_pct: float = 99.0,
+) -> list[np.ndarray]:
+    """Per-volume, channel-SHARED percentile normalization for one patient's
+    DCE timepoints. Computes (lo, hi) from nonzero voxels pooled across all
+    volumes, then maps each volume to uint8 with the SHARED range so that the
+    relative intensity between timepoints — the actual DCE signal — is
+    preserved across the resulting RGB channels."""
+    stacked = np.concatenate([v[v > 0].ravel() for v in volumes]) \
+        if any(v.size > 0 for v in volumes) else np.array([], dtype=np.float32)
+    if stacked.size == 0:
+        return [np.zeros_like(v, dtype=np.uint8) for v in volumes]
+    lo = float(np.percentile(stacked, lo_pct))
+    hi = float(np.percentile(stacked, hi_pct))
+    if hi - lo < 1e-8:
+        return [np.zeros_like(v, dtype=np.uint8) for v in volumes]
+    out = []
+    for v in volumes:
+        scaled = np.clip((v - lo) / (hi - lo), 0.0, 1.0)
+        out.append((scaled * 255).astype(np.uint8))
+    return out
+
+
 def fuse_rgb_slice(
     pre: np.ndarray,
     early_post: np.ndarray,
     late_post: np.ndarray,
 ) -> np.ndarray:
     """
-    Fuse three DCE phases into an RGB image (H, W, 3) uint8.
-    Each channel is independently MinMax-normalized.
+    DEPRECATED. Per-slice MinMax fusion. Each channel is independently
+    rescaled to [0, 255] so the relative intensity *between* DCE timepoints —
+    the entire signal of DCE-MRI — is normalized away. Kept only for the
+    `normalization: minmax_per_slice` ablation path in BreastDCEDataset. New
+    code should use `_percentile_uint8_volume` and stack slices manually.
     """
     r = _minmax_uint8(pre.astype(np.float32))
     g = _minmax_uint8(early_post.astype(np.float32))

@@ -17,6 +17,13 @@ data:
   crop_size: 224
   n_slices: 8
 
+  # Per-VOLUME, channel-SHARED percentile normalization preserves relative
+  # intensity between DCE timepoints (the actual signal). `minmax_per_slice`
+  # is the legacy per-slice-per-channel rescaling kept only for ablation.
+  normalization: percentile
+  percentile_lo: 1.0
+  percentile_hi: 99.0
+
   # SER timepoint indices per cohort (paper Section 2.5)
   # I-SPY: timepoints 0, 2, min(last_index, 6)
   # Duke:  timepoints 0, 1, final acquisition
@@ -28,10 +35,17 @@ data:
 model:
   backbone: google/vit-base-patch16-224-in21k
   num_classes: 2
-  dropout: 0.3
+  # Dropped from 0.3 to 0.1: in phase 1 (head-only) the small head sees
+  # too few gradients per step for 0.3 to be productive; phase 2 LLRD
+  # provides additional regularization elsewhere.
+  dropout: 0.1
   use_clinical: false
   clinical_features: [tum_vol, age, HR, HER2]
   clinical_dim: 4
+  # Audit which keys from the paper's .pth get transferred vs dropped.
+  # Defaults on for the first run after the load-path rewrite so missed
+  # transfers are visible; flip off later for quieter logs.
+  debug_pretrained: true
 
 training:
   num_epochs: 30
@@ -42,19 +56,29 @@ training:
   head_lr: 5e-4
   llrd: 0.85
   weight_decay: 0.01
-  patience: 10
+  # Was 10; tightened to 7 with the new normalization, head-bias init,
+  # and class-weights formula so validation can stop sooner once the
+  # learning signal flattens.
+  loss: focal
+  # Focal gamma. 0 reduces FocalLoss to plain CE, 2.0 is the
+  # paper-recommended setting. Surfaced as a knob for ablation.
+  loss_gamma: 2.0
+  patience: 7
   num_workers: 8
   amp_dtype: bf16  # bf16 on A100/H100; falls back to fp16 on V100/older.
   seed: 42
 
-  # Augmentation
+  # Tightened from earlier configs. Breast MRI has a clinically meaningful
+  # superior/inferior axis (vertical_flip removed). Rotation/translate/
+  # scale tightened to small jitter only; random_erasing was sometimes
+  # erasing the tumor itself, so it is off.
   augmentation:
     horizontal_flip: true
-    vertical_flip: true
-    rotation: 15
-    translate: [0.1, 0.1]
-    scale: [0.9, 1.1]
-    random_erasing: 0.25
+    vertical_flip: false
+    rotation: 5
+    translate: [0.05, 0.05]
+    scale: [0.95, 1.05]
+    random_erasing: 0.0
     color_jitter: null
 
 wandb:

@@ -27,8 +27,19 @@ class FocalLoss(nn.Module):
 
 
 def build_class_weights(labels: list[int], num_classes: int = 2) -> torch.Tensor:
+    """
+    Inverse-frequency class weights:  w_c = N / (num_classes * count_c).
+    For a 71/29 split this returns ~[0.704, 1.724]: the majority class is
+    down-weighted and the minority up-weighted around 1.0, so gradient
+    magnitudes are preserved.
+
+    The previous form returned `weights / weights.sum()`, which kept the
+    same RATIO but shrank gradient magnitudes by ~3x. Combined with focal
+    gamma=2 that left phase 1 head-warmup with almost no learning signal
+    (run9.log showed val_acc 0.301, sens 1.0, spec 0.0 across epochs 1-6).
+    """
     counts = torch.zeros(num_classes)
     for lab in labels:
         counts[int(lab)] += 1
-    weights = 1.0 / counts.clamp(min=1)
-    return weights / weights.sum()
+    N = counts.sum()
+    return N / (num_classes * counts.clamp(min=1))
