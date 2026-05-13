@@ -82,11 +82,17 @@ def _z_range(row: pd.Series, vol_depth: int) -> tuple[int, int]:
 
 class BreastDCEDataset(Dataset):
     """
-    Yields (image, label) pairs. Each patient produces n_slices samples
-    centered around the tumor mid-plane. Slices are cropped around the
-    tumor ROI and fused into RGB via the paper's MinMax approach.
+    Yields (image, label, pid) tuples — or (image, label, clinical, pid)
+    when clinical_cols is set. The trailing pid lets the evaluation layer
+    pool slice-level logits by patient regardless of DataLoader order or
+    tail-drop; pre-`pid` versions of this class relied on the loader being
+    strictly patient-contiguous, which silently mis-aligned labels under
+    drop_last=False or any worker reorder.
 
-    Optionally returns clinical features as a third element.
+    Each surviving patient (those whose NIfTI files resolve at construction)
+    produces n_slices samples centered on the tumor mid-plane. Slices are
+    cropped around the tumor ROI; RGB fusion is per-volume percentile by
+    default.
     """
 
     def __init__(
@@ -116,6 +122,30 @@ class BreastDCEDataset(Dataset):
         self.percentile_lo = float(percentile_lo)
         self.percentile_hi = float(percentile_hi)
 
+        # Pre-resolve every patient's NIfTI files at construction time. Drop
+        # rows whose load_acquisitions returns None or raises. Without this,
+        # __getitem__ would silently return a zero-tensor blank on load
+        # failure, which mis-aligns labels in patient_level pooling: the
+        # blank rows fill positions that the (logits, labels, pids) reshape
+        # then treats as real patients.
+        keep, dropped = [], []
+        for _, _row in self.df.iterrows():
+            _pid = str(_row["pid"])
+            try:
+                _acqs = load_acquisitions(_pid)
+                ok = _acqs is not None and len(_acqs) >= 2
+            except Exception:
+                ok = False
+            keep.append(ok)
+            if not ok:
+                dropped.append(_pid)
+        if dropped:
+            head = ", ".join(dropped[:10])
+            tail = f"  (+{len(dropped)-10} more)" if len(dropped) > 10 else ""
+            print(f"[dataset] dropped {len(dropped)} patient(s) with missing/unreadable NIfTI: "
+                  f"{head}{tail}")
+        self.df = self.df.loc[keep].reset_index(drop=True)
+
         # Precompute clinical feature normalization stats. mean/std are
         # computed with skipna; missing values are then imputed to the column
         # mean at __getitem__ time so (NaN-mean)/std doesn't propagate NaN
@@ -139,13 +169,17 @@ class BreastDCEDataset(Dataset):
     def __getitem__(self, idx: int):
         row_idx, slice_offset = self._index[idx]
         row = self.df.iloc[row_idx]
-        pid = row["pid"]
+        pid = str(row["pid"])
         label = int(row[self.label_col])
 
         try:
             acqs = load_acquisitions(pid)
             if acqs is None or len(acqs) < 2:
-                return self._blank(label, row_idx)
+                raise RuntimeError(
+                    f"load_acquisitions returned <2 timepoints (pid={pid}) "
+                    f"after construction-time pre-resolve passed — likely a "
+                    f"transient disk error."
+                )
 
             cohort = _cohort_from_pid(pid)
             idx_pre = row.get("pre") if "pre" in row.index else None
@@ -200,8 +234,11 @@ class BreastDCEDataset(Dataset):
             if img.size != (self.crop_size, self.crop_size):
                 img = img.resize((self.crop_size, self.crop_size), Image.BILINEAR)
 
-        except Exception:
-            return self._blank(label, row_idx)
+        except Exception as e:
+            # Construction-time pre-resolve should have dropped patients
+            # with missing files. Raising here surfaces transient corruption
+            # rather than silently returning a zero blank.
+            raise RuntimeError(f"BreastDCEDataset failed on pid={pid}: {e}") from e
 
         if self.transform:
             img = self.transform(img)
@@ -210,12 +247,6 @@ class BreastDCEDataset(Dataset):
             clin = self.df.iloc[row_idx][self.clinical_cols].values.astype(np.float32)
             clin = np.where(np.isnan(clin), self._clin_mean, clin)
             clin = (clin - self._clin_mean) / self._clin_std
-            return img, label, torch.from_numpy(clin)
+            return img, label, torch.from_numpy(clin), pid
 
-        return img, label
-
-    def _blank(self, label: int, row_idx: int = 0):
-        blank = torch.zeros(3, self.crop_size, self.crop_size)
-        if self.clinical_cols:
-            return blank, label, torch.zeros(len(self.clinical_cols))
-        return blank, label
+        return img, label, pid

@@ -19,23 +19,33 @@ from sklearn.metrics import (
 def patient_level_eval(
     logits: torch.Tensor,
     labels: torch.Tensor,
-    n_slices: int,
+    patient_ids,
 ) -> dict[str, float]:
     """
-    Mean-pool logits across n_slices per patient, then compute metrics.
-    Assumes logits/labels are ordered contiguously by patient (no shuffle).
-    """
-    n_total = logits.shape[0]
-    n_patients = n_total // n_slices
+    Group slice-level logits by patient id, mean-pool, compute metrics.
 
-    if n_patients == 0 or n_total % n_slices != 0:
+    Replaces the older reshape-based pooling, which assumed strict
+    patient-contiguous ordering. The bucketed form is order-invariant and
+    correct even if the loader reorders, drops, or skips slices.
+    """
+    from collections import defaultdict
+
+    if len(patient_ids) != logits.shape[0]:
+        raise ValueError(
+            f"len(patient_ids)={len(patient_ids)} != logits.shape[0]={logits.shape[0]}"
+        )
+
+    buckets: dict[str, dict] = defaultdict(lambda: {"logits": [], "label": None})
+    for lg, lb, pid in zip(logits, labels, patient_ids):
+        buckets[str(pid)]["logits"].append(lg)
+        buckets[str(pid)]["label"] = int(lb)
+
+    if not buckets:
         return _empty_metrics()
 
-    logits_3d = logits[:n_patients * n_slices].view(n_patients, n_slices, -1)
-    labels_2d = labels[:n_patients * n_slices].view(n_patients, n_slices)
-
-    pooled = logits_3d.mean(dim=1)
-    patient_labels = labels_2d[:, 0].numpy()
+    pids = list(buckets.keys())
+    pooled = torch.stack([torch.stack(buckets[p]["logits"]).mean(0) for p in pids])
+    patient_labels = np.array([buckets[p]["label"] for p in pids])
     probs = torch.softmax(pooled, dim=1)[:, 1].numpy()
     preds = pooled.argmax(dim=1).numpy()
 
@@ -114,18 +124,24 @@ def predict_with_tta(
     model,
     loader,
     device,
-    n_slices: int,
+    n_slices: int = 8,
     use_clinical: bool = False,
     tta: bool = True,
 ):
     """
-    Run inference with optional test-time augmentation (horizontal + vertical flips),
-    average logits across augmentations and across n_slices per patient.
-    Returns (patient_labels, probs, preds) numpy arrays.
+    Run inference with optional 4-view test-time augmentation (identity +
+    horizontal flip + vertical flip + both), average logits across views,
+    then bucket-pool by patient id.
+
+    Returns (patient_labels, probs, preds, patient_ids) numpy arrays /
+    list. The `n_slices` argument is kept for signature back-compat but
+    is no longer used — pooling now reads patient ids from each batch.
     """
+    from collections import defaultdict
     import torch
     from torch.cuda.amp import autocast
 
+    del n_slices  # unused: pooling is bucket-based now.
     model.eval()
     views = [lambda x: x]
     if tta:
@@ -135,15 +151,14 @@ def predict_with_tta(
             lambda x: torch.flip(x, dims=[-1, -2]),
         ])
 
-    all_logits = []
-    all_labels = []
+    buckets: dict[str, dict] = defaultdict(lambda: {"logits": [], "label": None})
     with torch.no_grad():
         for batch in loader:
             if use_clinical:
-                images, labels, clinical = batch
+                images, labels, clinical, pids = batch
                 clinical = clinical.to(device, non_blocking=True)
             else:
-                images, labels = batch
+                images, labels, pids = batch
                 clinical = None
             images = images.to(device, non_blocking=True)
             logits_sum = None
@@ -153,21 +168,18 @@ def predict_with_tta(
                           else model(v(images))
                 out = out.float()
                 logits_sum = out if logits_sum is None else logits_sum + out
-            all_logits.append((logits_sum / len(views)).cpu())
-            all_labels.append(labels)
+            batch_logits = (logits_sum / len(views)).cpu()
+            for lg, lb, pid in zip(batch_logits, labels, pids):
+                buckets[str(pid)]["logits"].append(lg)
+                buckets[str(pid)]["label"] = int(lb)
 
-    all_logits = torch.cat(all_logits)
-    all_labels = torch.cat(all_labels)
-
-    n_total = all_logits.shape[0]
-    n_patients = n_total // n_slices
-    logits_3d = all_logits[:n_patients * n_slices].view(n_patients, n_slices, -1)
-    labels_2d = all_labels[:n_patients * n_slices].view(n_patients, n_slices)
-    pooled = logits_3d.mean(dim=1)
-    patient_labels = labels_2d[:, 0].numpy()
+    ordered_pids = list(buckets.keys())
+    pooled = torch.stack([torch.stack(buckets[p]["logits"]).mean(0)
+                          for p in ordered_pids])
+    patient_labels = np.array([buckets[p]["label"] for p in ordered_pids])
     probs = torch.softmax(pooled, dim=1)[:, 1].numpy()
     preds = pooled.argmax(dim=1).numpy()
-    return patient_labels, probs, preds
+    return patient_labels, probs, preds, ordered_pids
 
 
 def plot_roc(y_true, y_prob, title="ROC Curve", save_path=None):

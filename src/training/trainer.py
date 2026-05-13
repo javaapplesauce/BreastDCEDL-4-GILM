@@ -60,6 +60,7 @@ def run_epoch(
     total = 0
     all_logits = []
     all_labels = []
+    all_pids: list[str] = []
 
     if is_train:
         optimizer.zero_grad()
@@ -70,10 +71,10 @@ def run_epoch(
     with ctx:
         for step, batch in enumerate(loader, 1):
             if use_clinical:
-                images, labels, clinical = batch
+                images, labels, clinical, pids = batch
                 clinical = clinical.to(device, non_blocking=True)
             else:
-                images, labels = batch
+                images, labels, pids = batch
                 clinical = None
 
             images = images.to(device, non_blocking=True)
@@ -105,10 +106,11 @@ def run_epoch(
             total += images.size(0)
             all_logits.append(logits.detach().cpu().float())
             all_labels.append(labels.cpu())
+            all_pids.extend(str(p) for p in pids)
 
     avg_loss = running_loss / max(total, 1)
     avg_acc = running_correct / max(total, 1)
-    return avg_loss, avg_acc, torch.cat(all_logits), torch.cat(all_labels)
+    return avg_loss, avg_acc, torch.cat(all_logits), torch.cat(all_labels), all_pids
 
 
 class Trainer:
@@ -142,7 +144,6 @@ class Trainer:
         freeze_epochs = self.tcfg["freeze_epochs"]
         accum = self.tcfg["accum_steps"]
         patience = self.tcfg["patience"]
-        n_slices = self.cfg["data"]["n_slices"]
 
         resume = self._maybe_load_resume()
         if resume and resume["mode"] == "full":
@@ -176,19 +177,19 @@ class Trainer:
 
             print(f"\n--- Phase 1: head-only (epochs {start_epoch}..{freeze_epochs}) ---")
             for epoch in range(start_epoch, freeze_epochs + 1):
-                tr_loss, tr_acc, _, _ = run_epoch(
+                tr_loss, tr_acc, _, _, _ = run_epoch(
                     self.model, self.train_loader, criterion, opt_p1,
                     self.scaler, self.device, accum, is_train=True,
                     use_clinical=self.use_clinical, amp_dtype=self.amp_dtype,
                 )
-                vl_loss, vl_acc, vl_logits, vl_labels = run_epoch(
+                vl_loss, vl_acc, vl_logits, vl_labels, vl_pids = run_epoch(
                     self.model, self.val_loader, criterion, opt_p1,
                     self.scaler, self.device, accum, is_train=False,
                     use_clinical=self.use_clinical, amp_dtype=self.amp_dtype,
                 )
                 sched_p1.step()
 
-                metrics = patient_level_eval(vl_logits, vl_labels, n_slices)
+                metrics = patient_level_eval(vl_logits, vl_labels, vl_pids)
                 self._log(epoch, "P1", tr_loss, tr_acc, vl_loss, vl_acc, metrics)
                 best_auc, epochs_no_imp = self._checkpoint(
                     epoch, "P1", opt_p1, sched_p1, metrics, best_auc, epochs_no_imp,
@@ -224,19 +225,19 @@ class Trainer:
                 print(f"Early stopping at epoch {epoch} (patience={patience})")
                 break
 
-            tr_loss, tr_acc, _, _ = run_epoch(
+            tr_loss, tr_acc, _, _, _ = run_epoch(
                 self.model, self.train_loader, criterion, opt_p2,
                 self.scaler, self.device, accum, is_train=True,
                 use_clinical=self.use_clinical, amp_dtype=self.amp_dtype,
             )
-            vl_loss, vl_acc, vl_logits, vl_labels = run_epoch(
+            vl_loss, vl_acc, vl_logits, vl_labels, vl_pids = run_epoch(
                 self.model, self.val_loader, criterion, opt_p2,
                 self.scaler, self.device, accum, is_train=False,
                 use_clinical=self.use_clinical, amp_dtype=self.amp_dtype,
             )
             sched_p2.step()
 
-            metrics = patient_level_eval(vl_logits, vl_labels, n_slices)
+            metrics = patient_level_eval(vl_logits, vl_labels, vl_pids)
             self._log(epoch, "P2", tr_loss, tr_acc, vl_loss, vl_acc, metrics)
             best_auc, epochs_no_imp = self._checkpoint(
                 epoch, "P2", opt_p2, sched_p2, metrics, best_auc, epochs_no_imp,
