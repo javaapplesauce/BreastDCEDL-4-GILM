@@ -46,6 +46,13 @@ model:
   # Defaults on for the first run after the load-path rewrite so missed
   # transfers are visible; flip off later for quieter logs.
   debug_pretrained: true
+  # When true, warmstart the classifier head's weight+bias from the paper's
+  # checkpoint. The May-2026 sanity run with this on showed the head locked
+  # in an all-positive prediction collapse that phase 1 head-only training
+  # at lr=5e-4 could not escape in 5 epochs (run9 + sanity log both show
+  # tr_acc=0.30, sens=1.0, spec=0.0). Flip false to keep the backbone
+  # warmstart but reset the head to a fresh Linear + log-prior bias.
+  load_paper_classifier: true
 
 training:
   num_epochs: 30

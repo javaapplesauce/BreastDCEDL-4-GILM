@@ -25,6 +25,7 @@ class BreastDCEViT(nn.Module):
         pretrained_weights: str | None = None,
         pos_class_prior: float = 0.5,
         debug_pretrained: bool = True,
+        load_paper_classifier: bool = True,
     ):
         super().__init__()
         self.use_clinical = use_clinical
@@ -54,7 +55,15 @@ class BreastDCEViT(nn.Module):
             self._init_head_bias_to_prior(pos_class_prior)
 
         if pretrained_weights:
-            self.load_pretrained(pretrained_weights, debug=debug_pretrained)
+            self.load_pretrained(
+                pretrained_weights,
+                debug=debug_pretrained,
+                load_classifier=load_paper_classifier,
+            )
+            # If we skipped the paper's classifier, the log-prior bias init
+            # above is what the head starts with — keep it. If we loaded it,
+            # the bias init was overwritten by the paper's bias, which is
+            # what the warmstart intends.
 
     def _init_head_bias_to_prior(self, p: float):
         """Set head bias so softmax(bias) = [1-p, p] at init. Avoids the
@@ -65,7 +74,7 @@ class BreastDCEViT(nn.Module):
         with torch.no_grad():
             self.head[1].bias.copy_(bias)
 
-    def load_pretrained(self, path: str, debug: bool = False):
+    def load_pretrained(self, path: str, debug: bool = False, load_classifier: bool = True):
         """Load pretrained weights (e.g. paper's checkpoint from Zenodo).
         Accepts either an already-wrapped state_dict (has `encoder.`/`head.`
         keys) or a bare HF ViTForImageClassification state_dict. Tries to
@@ -96,8 +105,16 @@ class BreastDCEViT(nn.Module):
         has_wrapper = any(k.startswith("encoder.") for k in sd)
 
         # Decide head load up front — we want weight+bias as a pair, or skip both.
+        # When load_classifier=False we intentionally skip the warmstart so the
+        # log-prior bias init in __init__ survives. Empirically the paper's
+        # classifier load can lock phase 1 into an all-positive prediction
+        # collapse that focal+class-weights at lr=5e-4 cannot escape in 5
+        # epochs.
         classifier_loaded = False
-        if not has_wrapper:
+        if not load_classifier:
+            print(f"  [pretrained] skipping classifier warmstart (load_classifier=False); "
+                  f"head uses log-prior bias init")
+        elif not has_wrapper:
             cls_w, cls_b = sd.get("classifier.weight"), sd.get("classifier.bias")
             head_w, head_b = own.get("head.1.weight"), own.get("head.1.bias")
             if (cls_w is not None and cls_b is not None
@@ -117,7 +134,10 @@ class BreastDCEViT(nn.Module):
                 new_k = k
             elif k.startswith("classifier."):
                 if not classifier_loaded:
-                    dropped_keys.append((k, "classifier handled separately (shape mismatch)"))
+                    reason = ("classifier warmstart disabled (load_classifier=False)"
+                              if not load_classifier
+                              else "classifier handled separately (shape mismatch)")
+                    dropped_keys.append((k, reason))
                 continue
             else:
                 new_k = f"encoder.{k}"
